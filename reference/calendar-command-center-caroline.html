@@ -1,0 +1,3696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendar Command Center</title>
+  <script src="calendar-data.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = '#334155';
+    const { useState, useMemo, useRef, useEffect } = React;
+
+
+// ══════════════════════════════════════════════════════════════════════
+// CALENDAR COMMAND CENTER — EA Scheduling & Analytics Dashboard
+// ══════════════════════════════════════════════════════════════════════
+// Replace sample data below with real calendar data from Outlook MCP.
+// Static mode: update arrays manually. Live mode: pull via MCP endpoints.
+// ══════════════════════════════════════════════════════════════════════
+
+// ── CALENDAR DATA ──
+// Loaded from calendar-data.js if available. To refresh: ask Claude to pull from Outlook MCP.
+const sampleEvents = (window._calendarData && window._calendarData.events) ? window._calendarData.events : [
+// ── FALLBACK SAMPLE DATA ──
+// Replace this with your exec's real data by asking Claude to "refresh the calendar tool"
+{
+  id: 1,
+  title: "External Meeting — Partner Co.",
+  date: "2026-04-07",
+  startTime: "10:00",
+  endTime: "11:00",
+  type: "external",
+  attendees: ["Contact A", "Contact B"],
+  recurring: false
+}, {
+  id: 2,
+  title: "Fitness / Trainer",
+  date: "2026-04-07",
+  startTime: "07:00",
+  endTime: "08:15",
+  type: "personal",
+  attendees: [],
+  recurring: true
+}, {
+  id: 3,
+  title: "Leadership Weekly",
+  date: "2026-04-07",
+  startTime: "13:00",
+  endTime: "14:00",
+  type: "internal",
+  attendees: ["Colleague A", "Colleague B"],
+  recurring: true
+}, {
+  id: 4,
+  title: "External Mtg — Studio Partner",
+  date: "2026-04-07",
+  startTime: "14:30",
+  endTime: "15:30",
+  type: "external",
+  attendees: ["Contact C", "Contact D"],
+  recurring: false
+}, {
+  id: 5,
+  title: "Exec Weekly // CFO, CEO",
+  date: "2026-04-07",
+  startTime: "15:00",
+  endTime: "16:00",
+  type: "internal",
+  attendees: ["CFO", "CEO"],
+  recurring: true
+}, {
+  id: 6,
+  title: "Zoom | Deal Review",
+  date: "2026-04-08",
+  startTime: "11:30",
+  endTime: "12:15",
+  type: "external",
+  attendees: ["Contact E", "Contact F"],
+  recurring: false
+}, {
+  id: 7,
+  title: "Co-Founders Weekly",
+  date: "2026-04-08",
+  startTime: "12:15",
+  endTime: "13:00",
+  type: "internal",
+  attendees: ["Co-Founder"],
+  recurring: true
+}, {
+  id: 8,
+  title: "Fitness / Trainer",
+  date: "2026-04-09",
+  startTime: "07:30",
+  endTime: "08:45",
+  type: "personal",
+  attendees: [],
+  recurring: true
+}, {
+  id: 9,
+  title: "Board Committee Meeting",
+  date: "2026-04-09",
+  startTime: "09:00",
+  endTime: "11:00",
+  type: "internal",
+  attendees: [],
+  recurring: false
+}, {
+  id: 10,
+  title: "Exec Weekly Zoom",
+  date: "2026-04-09",
+  startTime: "11:30",
+  endTime: "12:30",
+  type: "internal",
+  attendees: ["Colleague A", "Co-Founder"],
+  recurring: true
+}, {
+  id: 11,
+  title: "TBC — Strategic Review",
+  date: "2026-04-09",
+  startTime: "16:00",
+  endTime: "17:00",
+  type: "hold",
+  attendees: [],
+  recurring: false
+}, {
+  id: 12,
+  title: "Fitness / Trainer",
+  date: "2026-04-10",
+  startTime: "07:30",
+  endTime: "08:30",
+  type: "personal",
+  attendees: [],
+  recurring: true
+}, {
+  id: 13,
+  title: "Weekly Staff Meeting",
+  date: "2026-04-10",
+  startTime: "10:00",
+  endTime: "11:00",
+  type: "internal",
+  attendees: [],
+  recurring: true
+}];
+
+// ── MULTI-CALENDAR DATA ──
+const personDir = (window._calendarData && window._calendarData.peopleDirectory) ? window._calendarData.peopleDirectory : {};
+const calendarsByPerson = (window._calendarData && window._calendarData.people) ? window._calendarData.people : {
+  "Chris O'Connell": sampleEvents,
+  "EA / Coordinator": [{
+    id: 101,
+    title: "Team Standup",
+    date: "2026-04-07",
+    startTime: "09:00",
+    endTime: "09:30",
+    type: "internal",
+    attendees: [],
+    recurring: true
+  }, {
+    id: 102,
+    title: "Lunch",
+    date: "2026-04-07",
+    startTime: "12:30",
+    endTime: "13:30",
+    type: "personal",
+    attendees: [],
+    recurring: false
+  }],
+  "CEO Assistant": [{
+    id: 201,
+    title: "Check-in",
+    date: "2026-04-09",
+    startTime: "14:00",
+    endTime: "14:30",
+    type: "internal",
+    attendees: [],
+    recurring: true
+  }]
+};
+const PERSON_COLORS = {
+  "Chris O'Connell": "#818cf8",
+  "EA / Coordinator": "#34d399",
+  "CEO Assistant": "#f472b6"
+};
+
+// ── PEOPLE / INITIALS CONFIG ──
+// Map full names to initials for conflict check output.
+// In live mode, populate from your Key People list or Outlook contacts.
+const DEFAULT_PEOPLE_MAP = [{
+  name: "Chris O'Connell",
+  initials: "COC"
+}, {
+  name: "Co-Founder",
+  initials: "CF"
+}, {
+  name: "CEO",
+  initials: "CEO"
+}, {
+  name: "CFO",
+  initials: "CFO"
+}, {
+  name: "Colleague A",
+  initials: "CA"
+}];
+
+// ── COLORS ──
+const COLORS = {
+  internal: "#818cf8",
+  external: "#34d399",
+  personal: "#fbbf24",
+  dns: "#f87171",
+  hold: "#a78bfa",
+  travel: "#94a3b8",
+  available: "#065f46",
+  conflict: "#991b1b",
+  warning: "#92400e",
+  bg: "#0f172a",
+  card: "#1e293b",
+  cardAlt: "#162032",
+  border: "#334155",
+  text: "#e2e8f0",
+  textMuted: "#94a3b8",
+  textDim: "#64748b"
+};
+const TYPE_LABELS = {
+  internal: {
+    label: "Internal",
+    color: COLORS.internal,
+    bg: "#312e81"
+  },
+  external: {
+    label: "External",
+    color: COLORS.external,
+    bg: "#14532d"
+  },
+  personal: {
+    label: "Personal",
+    color: COLORS.personal,
+    bg: "#713f12"
+  },
+  dns: {
+    label: "DNS",
+    color: COLORS.dns,
+    bg: "#7f1d1d"
+  },
+  hold: {
+    label: "Hold",
+    color: COLORS.hold,
+    bg: "#4c1d95"
+  }
+};
+
+// ── OVERVIEW TIMELINE CONSTANTS ──
+const OV_DAY_S = 9 * 60;         // 9:00am
+const OV_DAY_E = 18 * 60;        // 6:00pm
+const OV_LUNCH_S = 13 * 60;      // 1:00pm
+const OV_LUNCH_E = 14 * 60 + 30; // 2:30pm
+const OV_PX = 0.65;              // pixels per minute
+const OV_H = Math.round((OV_DAY_E - OV_DAY_S) * OV_PX); // ~351px
+const OV_HOUR_LABELS = ["9am","10am","11am","12pm","1pm","2pm","3pm","4pm","5pm","6pm"];
+function isHardEvt(type) { return ["external","dns","hold","personal"].includes(type); }
+
+// ── FLEXIBILITY TIERS ──
+// Three tiers: "never" (hard block), "sometimes" (amber, soft conflict), "often" (light green, practically available)
+const FLEX_TIERS = {
+  never: {
+    label: "Never Move",
+    color: "#f87171",
+    bg: "#7f1d1d",
+    slotBg: "#7f1d1d20",
+    slotBorder: "#f87171"
+  },
+  sometimes: {
+    label: "Sometimes Move",
+    color: "#fbbf24",
+    bg: "#713f12",
+    slotBg: "#713f1225",
+    slotBorder: "#fbbf24"
+  },
+  often: {
+    label: "Often Move",
+    color: "#86efac",
+    bg: "#065f46",
+    slotBg: "#065f4625",
+    slotBorder: "#86efac"
+  }
+};
+
+// Default rules — match against meeting titles (keywords) or attendee names
+// Rule types: "keyword" matches title text, "attendee" matches attendee list
+const DEFAULT_FLEX_RULES = [{
+  type: "keyword",
+  values: ["leadership", "dns", "do not schedule", "group heads", "playback", "show and tell", "qbr"],
+  tier: "never"
+}, {
+  type: "attendee",
+  values: ["CFO", "Board Member"],
+  tier: "never"
+}, {
+  type: "keyword",
+  values: ["external", "client", "committee"],
+  tier: "sometimes"
+}, {
+  type: "attendee",
+  values: ["Emily Watson"],
+  tier: "sometimes"
+}, {
+  type: "keyword",
+  values: ["weekly", "biweekly", "check-in", "standup", "1:1", "lunch", "ai meeting"],
+  tier: "often"
+}, {
+  type: "attendee",
+  values: ["Jordan Park"],
+  tier: "often"
+}];
+
+// Classify a meeting's flexibility based on keyword + attendee rules + group size
+function classifyFlex(title, rules, defaultTier = "sometimes", attendees = [], largeGroupThresh = 5) {
+  const lowerTitle = title.toLowerCase();
+  const lowerAttendees = attendees.map(a => a.toLowerCase());
+
+  // Large group meetings are hard to reschedule
+  if (attendees.length >= largeGroupThresh) return "never";
+  for (const rule of rules) {
+    if (rule.type === "keyword" && rule.values.some(kw => lowerTitle.includes(kw.toLowerCase()))) {
+      return rule.tier;
+    }
+    if (rule.type === "attendee" && rule.values.some(name => lowerAttendees.some(a => a.includes(name.toLowerCase())))) {
+      return rule.tier;
+    }
+  }
+  return defaultTier;
+}
+
+// ── UTILITIES ──
+const timeToMin = t => {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+const minToTime = m => {
+  const h = Math.floor(m / 60);
+  const mi = m % 60;
+  return `${h}:${mi.toString().padStart(2, "0")}`;
+};
+const formatTime = t => {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hh = h % 12 || 12;
+  return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
+};
+const formatDuration = (start, end) => {
+  const diff = (timeToMin(end) - timeToMin(start)) / 60;
+  return diff === 1 ? "1 hr" : diff < 1 ? `${Math.round(diff * 60)} min` : `${diff} hrs`;
+};
+const getDayName = dateStr => {
+  const d = new Date(dateStr + "T12:00:00");
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
+};
+const getFullDay = dateStr => {
+  const d = new Date(dateStr + "T12:00:00");
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
+};
+const formatDate = dateStr => {
+  const d = new Date(dateStr + "T12:00:00");
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+};
+const getEventsByDate = events => {
+  const grouped = {};
+  events.forEach(e => {
+    if (!grouped[e.date]) grouped[e.date] = [];
+    grouped[e.date].push(e);
+  });
+  Object.values(grouped).forEach(arr => arr.sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime)));
+  return grouped;
+};
+
+// ── CHART COMPONENTS ──
+const ChartPie = ({
+  data,
+  height = 300
+}) => {
+  const canvasRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!canvasRef.current || !data || data.length === 0) return;
+    if (chartRef.current) chartRef.current.destroy();
+    const ctx = canvasRef.current.getContext('2d');
+    chartRef.current = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: data.map(d => d.name),
+        datasets: [{
+          data: data.map(d => d.value),
+          backgroundColor: data.map(d => d.color),
+          borderColor: COLORS.bg,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
+  }, [data]);
+  return React.createElement('div', {
+    style: { position: 'relative', height: height + 'px' }
+  }, React.createElement('canvas', { ref: canvasRef }));
+};
+const ChartBar = ({
+  data,
+  dataKey,
+  labelKey,
+  color,
+  horizontal = false,
+  height = 300
+}) => {
+  const canvasRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!canvasRef.current || !data || data.length === 0) return;
+    if (chartRef.current) chartRef.current.destroy();
+    const ctx = canvasRef.current.getContext('2d');
+    const colors = typeof color === 'function' ? data.map((d, i) => color(d, i)) : color;
+    chartRef.current = new Chart(ctx, {
+      type: horizontal ? 'bar' : 'bar',
+      data: {
+        labels: data.map(d => d[labelKey]),
+        datasets: [{
+          label: dataKey,
+          data: data.map(d => d[dataKey]),
+          backgroundColor: colors,
+          borderColor: COLORS.border,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: horizontal ? 'y' : 'x',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              color: COLORS.border
+            },
+            ticks: {
+              color: COLORS.textMuted
+            }
+          },
+          y: {
+            grid: {
+              color: COLORS.border
+            },
+            ticks: {
+              color: COLORS.textMuted
+            }
+          }
+        }
+      }
+    });
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
+  }, [data, dataKey, labelKey, color, horizontal]);
+  return React.createElement('div', {
+    style: { position: 'relative', height: height + 'px' }
+  }, React.createElement('canvas', { ref: canvasRef }));
+};
+
+// ── ANALYTICS ENGINE ──
+function analyzeSchedule(events) {
+  const byDate = getEventsByDate(events);
+  const days = Object.keys(byDate).sort();
+  const alerts = [];
+  const dailyHealth = [];
+  days.forEach(date => {
+    const dayEvents = byDate[date];
+    let score = 100;
+    const dayAlerts = [];
+    const dayName = getDayName(date);
+    const isWeekday = !["Sat", "Sun"].includes(dayName);
+    if (!isWeekday) return;
+
+    // Tight transitions (<15 min between meetings)
+    for (let i = 0; i < dayEvents.length - 1; i++) {
+      const gap = timeToMin(dayEvents[i + 1].startTime) - timeToMin(dayEvents[i].endTime);
+      if (gap >= 0 && gap < 15 && dayEvents[i].type !== "dns" && dayEvents[i + 1].type !== "dns") {
+        const severity = gap === 0 ? "critical" : "warning";
+        dayAlerts.push({
+          type: "tight_transition",
+          severity,
+          message: `${gap === 0 ? "Back-to-back" : `${gap} min gap`}: ${dayEvents[i].title} ends ${formatTime(dayEvents[i].endTime)}, ${dayEvents[i + 1].title} starts ${formatTime(dayEvents[i + 1].startTime)}`,
+          date
+        });
+        score -= gap === 0 ? 15 : 8;
+      }
+    }
+
+    // Back-to-back chain (3+ consecutive with <15 min gaps)
+    let chain = 1;
+    for (let i = 0; i < dayEvents.length - 1; i++) {
+      const gap = timeToMin(dayEvents[i + 1].startTime) - timeToMin(dayEvents[i].endTime);
+      if (gap < 15 && gap >= 0) {
+        chain++;
+      } else {
+        chain = 1;
+      }
+      if (chain >= 3) {
+        dayAlerts.push({
+          type: "chain",
+          severity: "critical",
+          message: `${chain} meetings back-to-back without a real break`,
+          date
+        });
+        score -= 10;
+      }
+    }
+
+    // No lunch break (something between 11:30-13:30 with no 30+ min gap)
+    const lunchStart = timeToMin("11:30");
+    const lunchEnd = timeToMin("13:30");
+    const lunchEvents = dayEvents.filter(e => {
+      const s = timeToMin(e.startTime);
+      const en = timeToMin(e.endTime);
+      return s < lunchEnd && en > lunchStart;
+    });
+    if (lunchEvents.length >= 2) {
+      let hasLunchGap = false;
+      for (let i = 0; i < lunchEvents.length - 1; i++) {
+        const gap = timeToMin(lunchEvents[i + 1].startTime) - timeToMin(lunchEvents[i].endTime);
+        if (gap >= 30) hasLunchGap = true;
+      }
+      if (!hasLunchGap) {
+        dayAlerts.push({
+          type: "no_lunch",
+          severity: "warning",
+          message: "No 30+ min lunch break between 11:30 AM and 1:30 PM",
+          date
+        });
+        score -= 10;
+      }
+    }
+
+    // Overloaded day (>6 hrs of meetings)
+    const totalMin = dayEvents.reduce((sum, e) => sum + (timeToMin(e.endTime) - timeToMin(e.startTime)), 0);
+    if (totalMin > 360) {
+      dayAlerts.push({
+        type: "overloaded",
+        severity: "warning",
+        message: `${(totalMin / 60).toFixed(1)} hours of meetings. Heavy day.`,
+        date
+      });
+      score -= 10;
+    }
+
+    // Early morning meeting (before 9 AM, not personal)
+    const earlyMeetings = dayEvents.filter(e => timeToMin(e.startTime) < timeToMin("09:00") && e.type !== "personal");
+    if (earlyMeetings.length) {
+      dayAlerts.push({
+        type: "early",
+        severity: "info",
+        message: `Meeting before 9 AM: ${earlyMeetings[0].title}`,
+        date
+      });
+      score -= 5;
+    }
+
+    // Late meeting (after 6 PM, not personal)
+    const lateMeetings = dayEvents.filter(e => timeToMin(e.endTime) > timeToMin("18:00") && e.type !== "personal");
+    if (lateMeetings.length) {
+      dayAlerts.push({
+        type: "late",
+        severity: "info",
+        message: `Meeting runs past 6 PM: ${lateMeetings[0].title}`,
+        date
+      });
+      score -= 5;
+    }
+    alerts.push(...dayAlerts);
+    dailyHealth.push({
+      date,
+      day: dayName,
+      label: `${dayName} ${formatDate(date)}`,
+      score: Math.max(0, Math.min(100, score)),
+      meetings: dayEvents.length,
+      hours: +(totalMin / 60).toFixed(1),
+      alerts: dayAlerts.length,
+      critical: dayAlerts.filter(a => a.severity === "critical").length
+    });
+  });
+  return {
+    alerts,
+    dailyHealth,
+    byDate
+  };
+}
+
+// ── AVAILABILITY FINDER (multi-calendar) ──
+function findMultiAvailability(calendarMap, selectedPeople, dates, startHour = "08:30", endHour = "18:00", minSlot = 30, lunchStartStr = "13:00", lunchEndStr = "14:30", noMorningBefore = "", fridayAfternoonOff = false, flexRules = DEFAULT_FLEX_RULES, defaultFlexTier = "sometimes", largeGroupThresh = 5) {
+  const availability = [];
+  dates.forEach(date => {
+    const dayName = getDayName(date);
+    if (["Sat", "Sun"].includes(dayName)) return;
+    let dayStart = timeToMin(startHour);
+    let dayEnd = timeToMin(endHour);
+    const lunchStart = timeToMin(lunchStartStr);
+    const lunchEnd = timeToMin(lunchEndStr);
+    if (noMorningBefore && timeToMin(noMorningBefore) > dayStart) {
+      dayStart = timeToMin(noMorningBefore);
+    }
+    if (fridayAfternoonOff && dayName === "Fri") {
+      dayEnd = Math.min(dayEnd, timeToMin("13:00"));
+    }
+
+    // Collect events with flexibility classification
+    const hardBlocks = []; // never-move events (+ lunch)
+    const softBlocks = []; // sometimes/often move events with their tier and metadata
+    const perPersonConflicts = {};
+    const allHolds = [];
+    selectedPeople.forEach(person => {
+      const events = calendarMap[person] || [];
+      const evtByDate = getEventsByDate(events);
+      const dayEvents = evtByDate[date] || [];
+      perPersonConflicts[person] = dayEvents;
+      dayEvents.forEach(e => {
+        if (e.type === "hold") {
+          allHolds.push({
+            ...e,
+            person
+          });
+          return;
+        }
+        const flex = e.type === "dns" ? "never" : classifyFlex(e.title, flexRules, defaultFlexTier, e.attendees || [], largeGroupThresh);
+        const block = {
+          start: timeToMin(e.startTime),
+          end: timeToMin(e.endTime),
+          person,
+          title: e.title,
+          flex,
+          type: e.type
+        };
+        if (flex === "never") {
+          hardBlocks.push(block);
+        } else {
+          softBlocks.push(block);
+        }
+      });
+    });
+
+    // Add lunch as a hard block
+    hardBlocks.push({
+      start: lunchStart,
+      end: lunchEnd,
+      person: "_system",
+      title: "Lunch",
+      flex: "never",
+      type: "system"
+    });
+    hardBlocks.sort((a, b) => a.start - b.start);
+
+    // Merge hard blocks
+    const mergedHard = [];
+    hardBlocks.forEach(b => {
+      if (mergedHard.length && b.start <= mergedHard[mergedHard.length - 1].end) {
+        mergedHard[mergedHard.length - 1].end = Math.max(mergedHard[mergedHard.length - 1].end, b.end);
+      } else {
+        mergedHard.push({
+          start: b.start,
+          end: b.end
+        });
+      }
+    });
+
+    // Find windows not blocked by hard blocks
+    const rawWindows = [];
+    let cursor = dayStart;
+    mergedHard.forEach(b => {
+      if (b.start > cursor && b.start - cursor >= minSlot) {
+        rawWindows.push({
+          start: cursor,
+          end: b.start
+        });
+      }
+      cursor = Math.max(cursor, b.end);
+    });
+    if (dayEnd > cursor && dayEnd - cursor >= minSlot) {
+      rawWindows.push({
+        start: cursor,
+        end: dayEnd
+      });
+    }
+
+    // For each raw window, check if soft blocks overlap and produce typed slots
+    const slots = [];
+    rawWindows.forEach(win => {
+      // Find soft blocks that overlap this window
+      const overlapping = softBlocks.filter(sb => sb.start < win.end && sb.end > win.start);
+      if (overlapping.length === 0) {
+        // Fully open
+        slots.push({
+          start: minToTime(win.start),
+          end: minToTime(win.end),
+          minutes: win.end - win.start,
+          tier: "open",
+          conflicts: []
+        });
+      } else {
+        // Split the window around soft blocks, labeling each segment
+        const points = [win.start, win.end];
+        overlapping.forEach(sb => {
+          if (sb.start > win.start) points.push(sb.start);
+          if (sb.end < win.end) points.push(sb.end);
+        });
+        const sorted = [...new Set(points)].sort((a, b) => a - b);
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const segStart = sorted[i];
+          const segEnd = sorted[i + 1];
+          if (segEnd - segStart < minSlot) continue;
+          const segConflicts = overlapping.filter(sb => sb.start < segEnd && sb.end > segStart);
+          if (segConflicts.length === 0) {
+            slots.push({
+              start: minToTime(segStart),
+              end: minToTime(segEnd),
+              minutes: segEnd - segStart,
+              tier: "open",
+              conflicts: []
+            });
+          } else {
+            // Use the "hardest" flex tier among overlapping conflicts
+            const worstTier = segConflicts.some(c => c.flex === "sometimes") ? "sometimes" : "often";
+            slots.push({
+              start: minToTime(segStart),
+              end: minToTime(segEnd),
+              minutes: segEnd - segStart,
+              tier: worstTier,
+              conflicts: segConflicts.map(c => ({
+                title: c.title,
+                person: c.person,
+                flex: c.flex,
+                start: minToTime(c.start),
+                end: minToTime(c.end)
+              }))
+            });
+          }
+        }
+      }
+    });
+    availability.push({
+      date,
+      day: dayName,
+      slots,
+      holds: allHolds,
+      perPersonConflicts
+    });
+  });
+  return availability;
+}
+
+// ── COMPONENTS ──
+const Badge = ({
+  type
+}) => {
+  const t = TYPE_LABELS[type] || {
+    label: type,
+    color: "#94a3b8",
+    bg: "#1e293b"
+  };
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: t.bg,
+      color: t.color,
+      padding: "2px 10px",
+      borderRadius: 4,
+      fontSize: 10,
+      fontWeight: 600,
+      letterSpacing: "0.03em",
+      textTransform: "uppercase"
+    }
+  }, t.label);
+};
+const StatCard = ({
+  label,
+  value,
+  sub,
+  color,
+  icon
+}) => /*#__PURE__*/React.createElement("div", {
+  style: {
+    background: COLORS.card,
+    borderRadius: 12,
+    padding: "20px 24px",
+    flex: 1,
+    minWidth: 160,
+    borderLeft: `4px solid ${color}`
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center"
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em"
+  }
+}, label), icon && /*#__PURE__*/React.createElement("span", {
+  style: {
+    fontSize: 18
+  }
+}, icon)), /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: "#f1f5f9",
+    marginTop: 4
+  }
+}, value), /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 11,
+    color: COLORS.textDim,
+    marginTop: 4
+  }
+}, sub));
+
+// ══════════════════════════════════════════════════════════════════════
+// MAIN DASHBOARD
+// ══════════════════════════════════════════════════════════════════════
+const TABS = [{
+  id: "overview",
+  label: "Overview",
+  icon: "grid"
+}, {
+  id: "mix",
+  label: "Meeting Mix",
+  icon: "layers"
+}, {
+  id: "recurring",
+  label: "Recurring Audit",
+  icon: "repeat"
+}, {
+  id: "radar",
+  label: "External Radar",
+  icon: "radar"
+}, {
+  id: "schedule",
+  label: "Daily Schedule",
+  icon: "list"
+}, {
+  id: "availability",
+  label: "Availability",
+  icon: "clock"
+}, {
+  id: "conflicts",
+  label: "Conflict Check",
+  icon: "alert"
+}, {
+  id: "financeAvails",
+  label: "Finance Avails",
+  icon: "grid"
+}, {
+  id: "relRadar",
+  label: "Rel. Radar",
+  icon: "radar"
+}];
+const CalendarCommandCenter = function CalendarCommandCenter() {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  // Conflict checker state
+  const [ccPeople, setCcPeople] = useState(["Chris O'Connell"]); // people to check
+  const [ccInput, setCcInput] = useState("Tue 2026-04-07\n9:00am-10:00am\n2:00pm-3:00pm\nWed 2026-04-08\n9:00am-10:00am\n12:00pm-1:00pm\nThu 2026-04-09\n9:00am-10:30am\n2:00pm-3:00pm\n5:00pm-6:00pm");
+  const [ccNotes, setCcNotes] = useState("");
+  const [ccCopied, setCcCopied] = useState(false);
+  const [peopleMap, setPeopleMap] = useState(DEFAULT_PEOPLE_MAP);
+  const [newPersonName, setNewPersonName] = useState("");
+  const [newPersonInitials, setNewPersonInitials] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("week15");
+  const [selectedPeople, setSelectedPeople] = useState(["Chris O'Connell"]);
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [personCard, setPersonCard] = useState(null);
+  const [prefs, setPrefs] = useState({
+    startHour: "08:30",
+    endHour: "18:00",
+    lunchStart: "13:00",
+    lunchEnd: "14:30",
+    minSlot: 30,
+    noMorningBefore: "",
+    fridayAfternoonOff: false
+  });
+  const [flexRules, setFlexRules] = useState(DEFAULT_FLEX_RULES);
+  const [defaultFlexTier, setDefaultFlexTier] = useState("sometimes");
+  const [largeGroupThreshold, setLargeGroupThreshold] = useState(5); // meetings with this many+ attendees bump toward never-move
+  const [newRuleType, setNewRuleType] = useState("keyword");
+  const [newRuleValue, setNewRuleValue] = useState("");
+  const [newRuleTier, setNewRuleTier] = useState("often");
+  const addFlexRule = () => {
+    const val = newRuleValue.trim();
+    if (!val) return;
+    setFlexRules(prev => [...prev, {
+      type: newRuleType,
+      values: [val],
+      tier: newRuleTier
+    }]);
+    setNewRuleValue("");
+  };
+  const removeFlexRule = idx => setFlexRules(prev => prev.filter((_, i) => i !== idx));
+  const updatePref = (key, val) => setPrefs(prev => ({
+    ...prev,
+    [key]: val
+  }));
+  const [availMode, setAvailMode] = useState("week"); // "week" or "custom"
+  const [availWeek, setAvailWeek] = useState("week15");
+  const [customDates, setCustomDates] = useState([]);
+  const [customDateInput, setCustomDateInput] = useState("");
+  const [keyRelationships, setKeyRelationships] = useState(["FloQast", "Eldridge", "Ronnie Byrd & Bryan Milinovich", "Hunter Merryman", "Victoria Zhu"]);
+  const [newRelInput, setNewRelInput] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleCopied, setScheduleCopied] = useState(false);
+  const [availCopied, setAvailCopied] = useState(false);
+  const [ovPeople, setOvPeople] = useState(["Chris O'Connell"]);
+  const toggleOvPerson = p => setOvPeople(prev => prev.includes(p) ? (prev.length > 1 ? prev.filter(x => x !== p) : prev) : [...prev, p]);
+  const [faExcluded, setFaExcluded] = useState([]);
+  const [recurringExpanded, setRecurringExpanded] = useState(new Set());
+
+  // ── Compute analytics ──
+  const analysis = useMemo(() => analyzeSchedule(sampleEvents), []);
+  const {
+    alerts,
+    dailyHealth,
+    byDate
+  } = analysis;
+  const allWeekDates = (() => {
+    const weeks = {};
+    const d = new Date("2026-01-05T12:00:00"); // First Monday of 2026
+    let i = 1;
+    while (d.getFullYear() <= 2026) {
+      const days = [];
+      for (let j = 0; j < 5; j++) {
+        const day = new Date(d);
+        day.setDate(d.getDate() + j);
+        if (day.getFullYear() > 2026) break;
+        days.push(day.toISOString().slice(0, 10));
+      }
+      if (days.length > 0) weeks["week" + i] = days;
+      d.setDate(d.getDate() + 7);
+      i++;
+      if (i > 60) break; // safety
+    }
+    return weeks;
+  })();
+  const fmtWeekLabel = dates => {
+    const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const s = new Date(dates[0] + "T12:00:00");
+    const e = new Date(dates[dates.length - 1] + "T12:00:00");
+    const sm = MO[s.getMonth()], em = MO[e.getMonth()];
+    return sm === em
+      ? "Week: " + sm + " " + s.getDate() + " - " + e.getDate()
+      : "Week: " + sm + " " + s.getDate() + " - " + em + " " + e.getDate();
+  };
+  const weekDates = allWeekDates[selectedWeek] || allWeekDates.week3;
+
+  // Availability dates — independent of the global week selector
+  const availWeekDates = allWeekDates;
+  const availDates = availMode === "week" ? availWeekDates[availWeek] || [] : customDates.slice().sort();
+  const avail = useMemo(() => findMultiAvailability(calendarsByPerson, selectedPeople, availDates, prefs.startHour, prefs.endHour, prefs.minSlot, prefs.lunchStart, prefs.lunchEnd, prefs.noMorningBefore, prefs.fridayAfternoonOff, flexRules, defaultFlexTier, largeGroupThreshold), [availMode, availWeek, customDates, selectedPeople, prefs, flexRules, defaultFlexTier, largeGroupThreshold]);
+
+  // All known dates from sample data (for the day picker)
+  const allKnownDates = useMemo(() => {
+    const dates = new Set();
+    Object.values(calendarsByPerson).forEach(events => events.forEach(e => dates.add(e.date)));
+    return [...dates].sort();
+  }, []);
+  const toggleCustomDate = date => {
+    setCustomDates(prev => prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]);
+  };
+  const addCustomDate = () => {
+    const d = customDateInput.trim();
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && !customDates.includes(d)) {
+      setCustomDates(prev => [...prev, d]);
+      setCustomDateInput("");
+    }
+  };
+  const allPeople = Object.keys(calendarsByPerson);
+  const togglePerson = person => {
+    setSelectedPeople(prev => prev.includes(person) ? prev.filter(p => p !== person) : [...prev, person]);
+  };
+
+  // Stats
+  const totalEvents = sampleEvents.length;
+  const internalCount = sampleEvents.filter(e => e.type === "internal").length;
+  const externalCount = sampleEvents.filter(e => e.type === "external").length;
+  const avgHealth = dailyHealth.length ? Math.round(dailyHealth.reduce((s, d) => s + d.score, 0) / dailyHealth.length) : 0;
+  const criticalAlerts = alerts.filter(a => a.severity === "critical").length;
+  const recurringCount = sampleEvents.filter(e => e.recurring).length;
+
+  // Meeting type distribution (excludes DNS and Hold, includes free time)
+  const meetingHoursInternal = sampleEvents.filter(e => e.type === "internal").reduce((s, e) => s + (timeToMin(e.endTime) - timeToMin(e.startTime)) / 60, 0);
+  const meetingHoursExternal = sampleEvents.filter(e => e.type === "external").reduce((s, e) => s + (timeToMin(e.endTime) - timeToMin(e.startTime)) / 60, 0);
+  const meetingHoursPersonal = sampleEvents.filter(e => e.type === "personal").reduce((s, e) => s + (timeToMin(e.endTime) - timeToMin(e.startTime)) / 60, 0);
+  const distUniqueDates = [...new Set(sampleEvents.map(e => e.date))];
+  const distWorkHoursPerDay = (timeToMin(prefs.endHour) - timeToMin(prefs.startHour)) / 60;
+  const distTotalWorkHours = distUniqueDates.length * distWorkHoursPerDay;
+  const distMeetingHours = meetingHoursInternal + meetingHoursExternal + meetingHoursPersonal;
+  const distFreeHours = Math.max(0, distTotalWorkHours - distMeetingHours);
+  const totalHours = distTotalWorkHours;
+  const typeDistribution = [{
+    name: "Internal",
+    value: meetingHoursInternal,
+    color: COLORS.internal
+  }, {
+    name: "External",
+    value: meetingHoursExternal,
+    color: "#38bdf8"
+  }, {
+    name: "Personal",
+    value: meetingHoursPersonal,
+    color: COLORS.personal
+  }, {
+    name: "Not in Meetings",
+    value: distFreeHours,
+    color: COLORS.external
+  }];
+
+  // External entity breakdown
+  const externalByEntity = {};
+  sampleEvents.filter(e => e.type === "external" && e.entity).forEach(e => {
+    if (!externalByEntity[e.entity]) externalByEntity[e.entity] = {
+      name: e.entity,
+      meetings: 0,
+      hours: 0
+    };
+    externalByEntity[e.entity].meetings++;
+    externalByEntity[e.entity].hours += (timeToMin(e.endTime) - timeToMin(e.startTime)) / 60;
+  });
+  const entityData = Object.values(externalByEntity).sort((a, b) => b.hours - a.hours);
+
+  // Recurring meeting analysis
+  const recurringGroups = {};
+  sampleEvents.filter(e => e.recurring && e.type === "internal").forEach(e => {
+    const key = e.title.replace(/\s+/g, " ").trim();
+    if (!recurringGroups[key]) recurringGroups[key] = {
+      name: key,
+      occurrences: 0,
+      totalMin: 0,
+      attendees: new Set()
+    };
+    recurringGroups[key].occurrences++;
+    recurringGroups[key].totalMin += timeToMin(e.endTime) - timeToMin(e.startTime);
+    e.attendees.forEach(a => recurringGroups[key].attendees.add(a));
+  });
+  const recurringData = Object.values(recurringGroups).map(r => ({
+    ...r,
+    avgHours: +(r.totalMin / r.occurrences / 60).toFixed(2),
+    attendeeCount: r.attendees.size,
+    weeklyEstimate: +(r.totalMin / r.occurrences / 60 * (r.occurrences > 1 ? r.occurrences / 2 : 1)).toFixed(1)
+  })).sort((a, b) => b.weeklyEstimate - a.weeklyEstimate);
+
+  // Day-of-week load
+  const dowLoad = [{
+    day: "Mon",
+    hours: 0,
+    meetings: 0
+  }, {
+    day: "Tue",
+    hours: 0,
+    meetings: 0
+  }, {
+    day: "Wed",
+    hours: 0,
+    meetings: 0
+  }, {
+    day: "Thu",
+    hours: 0,
+    meetings: 0
+  }, {
+    day: "Fri",
+    hours: 0,
+    meetings: 0
+  }];
+  const dowMap = {
+    Mon: 0,
+    Tue: 1,
+    Wed: 2,
+    Thu: 3,
+    Fri: 4
+  };
+  sampleEvents.filter(e => e.type !== "dns" && e.type !== "hold").forEach(e => {
+    const dn = getDayName(e.date);
+    if (dowMap[dn] !== undefined) {
+      dowLoad[dowMap[dn]].hours += (timeToMin(e.endTime) - timeToMin(e.startTime)) / 60;
+      dowLoad[dowMap[dn]].meetings++;
+    }
+  });
+  dowLoad.forEach(d => {
+    d.hours = +d.hours.toFixed(1);
+  });
+
+  // ── Conflict Check Engine (new format) ──
+  const getInitials = personName => {
+    const found = peopleMap.find(p => p.name === personName);
+    return found ? found.initials : personName.split(" ").map(w => w[0]).join("").toUpperCase();
+  };
+
+  // Parse input: lines are either day headers ("Mon 2026-03-23" or "Tue 2026-04-07") or time windows ("9:00am-10:00am")
+  const parseTimeAMPM = str => {
+    const s = str.trim().toLowerCase().replace(/\s/g, "");
+    const match = s.match(/^(\d{1,2}):?(\d{2})?\s*(am|pm)?$/);
+    if (!match) return 0;
+    let h = parseInt(match[1]);
+    const m = parseInt(match[2] || "0");
+    const ampm = match[3];
+    if (ampm === "pm" && h < 12) h += 12;
+    if (ampm === "am" && h === 12) h = 0;
+    return h * 60 + m;
+  };
+  const formatTimeAMPM = min => {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    const ampm = h >= 12 ? "pm" : "am";
+    const hh = h % 12 || 12;
+    return m === 0 ? `${hh}${ampm}` : `${hh}:${m.toString().padStart(2, "0")}${ampm}`;
+  };
+  const ccResults = useMemo(() => {
+    const lines = ccInput.trim().split("\n").filter(l => l.trim());
+    const results = [];
+    let currentDate = null;
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      // Check if this is a day header (contains a date like 2026-04-07)
+      const dateMatch = trimmed.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        currentDate = dateMatch[1];
+        return;
+      }
+      // Check if this is a time window (e.g., "9:00am-10:00am" or "2:30pm-5pm")
+      const timeMatch = trimmed.match(/^(\d{1,2}:?\d{0,2}\s*(?:am|pm)?)\s*-\s*(\d{1,2}:?\d{0,2}\s*(?:am|pm)?)$/i);
+      if (timeMatch && currentDate) {
+        const winStart = parseTimeAMPM(timeMatch[1]);
+        const winEnd = parseTimeAMPM(timeMatch[2]);
+
+        // Gather events for each selected person
+        const personResults = ccPeople.map(person => {
+          const events = calendarsByPerson[person] || [];
+          const evtByDate = getEventsByDate(events);
+          const dayEvents = (evtByDate[currentDate] || []).sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime));
+          const initials = getInitials(person);
+
+          // Find conflicts (overlap with proposed window)
+          const conflicts = dayEvents.filter(e => {
+            const s = timeToMin(e.startTime);
+            const en = timeToMin(e.endTime);
+            return s < winEnd && en > winStart;
+          });
+
+          // Context: meetings within ~3 hrs before
+          const before = dayEvents.filter(e => {
+            const en = timeToMin(e.endTime);
+            return en <= winStart && en > winStart - 180;
+          }).slice(-2);
+
+          // Context: meetings within ~3 hrs after
+          const after = dayEvents.filter(e => {
+            const s = timeToMin(e.startTime);
+            return s >= winEnd && s < winEnd + 180;
+          }).slice(0, 2);
+          return {
+            person,
+            initials,
+            conflicts,
+            before,
+            after,
+            clear: conflicts.length === 0
+          };
+        });
+        results.push({
+          date: currentDate,
+          day: getDayName(currentDate),
+          startTime: formatTimeAMPM(winStart),
+          endTime: formatTimeAMPM(winEnd),
+          winStart,
+          winEnd,
+          personResults,
+          allClear: personResults.every(p => p.clear)
+        });
+      }
+    });
+    return results;
+  }, [ccInput, ccPeople, peopleMap]);
+
+  // Generate plain-text email output
+  const ccEmailText = useMemo(() => {
+    if (ccResults.length === 0) return "";
+    const lines = [];
+    let lastDate = null;
+    ccResults.forEach(r => {
+      const header = `${getDayName(r.date)}, ${formatDate(r.date)} @ ${r.startTime}-${r.endTime}`;
+      lines.push(header);
+
+      // Collect all events into one block, attributed by initials
+      const allEntries = [];
+      r.personResults.forEach(pr => {
+        // Before context
+        pr.before.forEach(e => {
+          const flex = classifyFlex(e.title, flexRules, defaultFlexTier, e.attendees || [], largeGroupThreshold);
+          allEntries.push({
+            sortKey: timeToMin(e.startTime),
+            text: `${formatTimeAMPM(timeToMin(e.startTime))} ${pr.initials}: ${e.title}`,
+            type: "context"
+          });
+        });
+        // Conflicts
+        pr.conflicts.forEach(e => {
+          const flex = classifyFlex(e.title, flexRules, defaultFlexTier, e.attendees || [], largeGroupThreshold);
+          const tag = flex === "often" || flex === "sometimes" ? " (would reschedule)" : "";
+          allEntries.push({
+            sortKey: timeToMin(e.startTime),
+            text: `${formatTimeAMPM(timeToMin(e.startTime))} ${pr.initials}: ${e.title}${tag}`,
+            type: "conflict"
+          });
+        });
+        // After context
+        pr.after.forEach(e => {
+          allEntries.push({
+            sortKey: timeToMin(e.startTime),
+            text: `${formatTimeAMPM(timeToMin(e.startTime))} ${pr.initials}: ${e.title}`,
+            type: "context"
+          });
+        });
+        // If person is clear
+        if (pr.clear && pr.before.length === 0 && pr.after.length === 0) {
+          allEntries.push({
+            sortKey: r.winStart,
+            text: `${pr.initials}: clear`,
+            type: "clear"
+          });
+        } else if (pr.clear) {
+          allEntries.push({
+            sortKey: r.winStart + 0.5,
+            text: `${pr.initials}: clear`,
+            type: "clear"
+          });
+        }
+      });
+
+      // Deduplicate shared meetings (same time + title across people)
+      const seen = new Set();
+      const deduped = [];
+      allEntries.sort((a, b) => a.sortKey - b.sortKey);
+      allEntries.forEach(entry => {
+        // For shared meetings, combine initials
+        const baseText = entry.text.replace(/^\S+\s+\w+:/, "").trim();
+        const timePrefix = entry.text.match(/^(\d+(?::\d+)?(?:am|pm)?)/)?.[0] || "";
+        const key = `${timePrefix}-${baseText}-${entry.type}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(entry);
+        }
+      });
+      deduped.forEach(e => lines.push(`  ${e.text}`));
+      lines.push(""); // blank line between windows
+    });
+    if (ccNotes.trim()) {
+      lines.push(`Note: ${ccNotes.trim()}`);
+    }
+    return lines.join("\n").trim();
+  }, [ccResults, ccNotes, flexRules, defaultFlexTier, largeGroupThreshold]);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return sampleEvents
+      .filter(e =>
+        e.title.toLowerCase().includes(q) ||
+        (e.attendees || []).some(a => a.toLowerCase().includes(q))
+      )
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 5);
+  }, [searchQuery]);
+
+  const emailResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const emails = (window._calendarData && window._calendarData.emails) || [];
+    return emails
+      .filter(e =>
+        e.subject.toLowerCase().includes(q) ||
+        e.from.toLowerCase().includes(q) ||
+        (e.preview || "").toLowerCase().includes(q) ||
+        (e.tags || []).some(t => t.toLowerCase().includes(q))
+      )
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+  }, [searchQuery]);
+
+  // ── RENDER ──
+  const sectionStyle = {
+    background: COLORS.card,
+    borderRadius: 12,
+    padding: 24,
+    marginBottom: 20
+  };
+  const headerStyle = {
+    margin: "0 0 16px",
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#f1f5f9"
+  };
+  const subStyle = {
+    color: COLORS.textMuted,
+    margin: "0 0 20px",
+    fontSize: 13
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: COLORS.bg,
+      minHeight: "100vh",
+      color: COLORS.text,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "28px 40px 0",
+      maxWidth: 1400,
+      margin: "0 auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 26,
+      fontWeight: 700,
+      margin: 0,
+      color: "#f1f5f9"
+    }
+  }, "Calendar Command Center"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: COLORS.textMuted,
+      margin: "4px 0 0",
+      fontSize: 13
+    }
+  }, "Analytics + Scheduling + Alerts")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center"
+    }
+  },
+  /*#__PURE__*/React.createElement("div", {style:{position:"relative"}},
+    React.createElement("input", {
+      type: "text",
+      placeholder: "Search events or people…",
+      value: searchQuery,
+      onChange: e => setSearchQuery(e.target.value),
+      onFocus: () => setSearchFocused(true),
+      onBlur: () => setTimeout(() => setSearchFocused(false), 160),
+      style: {
+        background: COLORS.card,
+        color: COLORS.text,
+        border: `1px solid ${searchFocused ? "#6366f1" : COLORS.border}`,
+        padding: "8px 12px 8px 32px",
+        borderRadius: 8,
+        fontSize: 12,
+        width: 220,
+        outline: "none",
+        transition: "border-color 0.15s"
+      }
+    }),
+    React.createElement("span", {
+      style: {
+        position: "absolute",
+        left: 10,
+        top: "50%",
+        transform: "translateY(-50%)",
+        color: COLORS.textDim,
+        fontSize: 13,
+        pointerEvents: "none",
+        lineHeight: 1
+      }
+    }, "⌕"),
+    searchFocused && searchQuery.trim().length >= 2 && (searchResults.length > 0 || emailResults.length > 0) && React.createElement("div", {
+      style: {
+        position: "absolute",
+        top: "calc(100% + 6px)",
+        right: 0,
+        background: "#1e293b",
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 10,
+        zIndex: 200,
+        width: 380,
+        boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+        overflow: "hidden",
+        maxHeight: 520,
+        overflowY: "auto"
+      }
+    },
+    // ── Events section ──
+    searchResults.length > 0 && React.createElement("div", {key:"events-section"},
+      React.createElement("div", {style:{padding:"8px 14px 4px", fontSize:10, fontWeight:700, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.08em", borderBottom:`1px solid ${COLORS.border}`}}, "Events"),
+      searchResults.map((e, i) => {
+        const [h, m] = e.startTime ? e.startTime.split(":") : [];
+        const hr = h ? parseInt(h) : null;
+        const timeStr = hr !== null ? `${hr > 12 ? hr - 12 : hr || 12}:${m}${hr >= 12 ? "pm" : "am"}` : "";
+        const [h2, m2] = e.endTime ? e.endTime.split(":") : [];
+        const hr2 = h2 ? parseInt(h2) : null;
+        const endStr = hr2 !== null ? `${hr2 > 12 ? hr2 - 12 : hr2 || 12}:${m2}${hr2 >= 12 ? "pm" : "am"}` : "";
+        const typeColor = e.type === "external" ? "#f59e0b" : e.type === "personal" ? "#94a3b8" : "#818cf8";
+        return React.createElement("div", {
+          key: e.id,
+          onMouseDown: () => { setScheduleDate(e.date); setActiveTab("schedule"); setSearchQuery(""); setSearchFocused(false); },
+          style: { padding:"10px 14px", cursor:"pointer", borderBottom: i < searchResults.length - 1 ? `1px solid ${COLORS.border}` : "none", display:"flex", flexDirection:"column", gap:3 },
+          onMouseEnter: ev => ev.currentTarget.style.background = "#334155",
+          onMouseLeave: ev => ev.currentTarget.style.background = "transparent"
+        },
+          React.createElement("div", {style:{fontSize:12, color:"#f1f5f9", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}, e.title),
+          React.createElement("div", {style:{fontSize:11, color:COLORS.textMuted, display:"flex", gap:6, alignItems:"center"}},
+            React.createElement("span", {style:{color:typeColor, fontWeight:600, textTransform:"uppercase", fontSize:10}}, e.type),
+            React.createElement("span", null, getDayName(e.date), " ", formatDate(e.date)),
+            timeStr && React.createElement("span", null, "· ", timeStr, endStr ? "–" + endStr : "")
+          )
+        );
+      })
+    ),
+    // ── Emails section ──
+    emailResults.length > 0 && React.createElement("div", {key:"emails-section"},
+      React.createElement("div", {style:{padding:"8px 14px 4px", fontSize:10, fontWeight:700, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.08em", borderBottom:`1px solid ${COLORS.border}`, borderTop: searchResults.length > 0 ? `2px solid ${COLORS.border}` : "none"}}, "Emails"),
+      emailResults.map((e, i) => {
+        return React.createElement("div", {
+          key: e.id,
+          onMouseDown: () => { window.open(e.link, "_blank"); setSearchQuery(""); setSearchFocused(false); },
+          style: { padding:"10px 14px", cursor:"pointer", borderBottom: i < emailResults.length - 1 ? `1px solid ${COLORS.border}` : "none", display:"flex", flexDirection:"column", gap:3 },
+          onMouseEnter: ev => ev.currentTarget.style.background = "#334155",
+          onMouseLeave: ev => ev.currentTarget.style.background = "transparent"
+        },
+          React.createElement("div", {style:{display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8}},
+            React.createElement("div", {style:{fontSize:12, color:"#f1f5f9", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1}},
+              e.flagged && React.createElement("span", {style:{color:"#f59e0b", marginRight:4}}, "★"),
+              e.subject
+            ),
+            React.createElement("span", {style:{fontSize:10, color:COLORS.textDim, whiteSpace:"nowrap", flexShrink:0}}, formatDate(e.date))
+          ),
+          React.createElement("div", {style:{fontSize:11, color:COLORS.textMuted, display:"flex", gap:6, alignItems:"center"}},
+            React.createElement("span", {style:{color:"#34d399", fontWeight:600, fontSize:10}}, "EMAIL"),
+            React.createElement("span", null, e.from),
+            e.preview && React.createElement("span", {style:{overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160}}, "· ", e.preview.slice(0,60), e.preview.length > 60 ? "…" : "")
+          )
+        );
+      })
+    )
+    ),
+    searchFocused && searchQuery.trim().length >= 2 && searchResults.length === 0 && emailResults.length === 0 && React.createElement("div", {
+      style: {
+        position: "absolute",
+        top: "calc(100% + 6px)",
+        right: 0,
+        background: "#1e293b",
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 10,
+        zIndex: 200,
+        width: 280,
+        padding: "12px 14px",
+        fontSize: 12,
+        color: COLORS.textMuted,
+        boxShadow: "0 12px 32px rgba(0,0,0,0.5)"
+      }
+    }, "No results for \"", searchQuery, "\"")
+  ),
+  /*#__PURE__*/React.createElement("select", {
+    value: selectedWeek,
+    onChange: e => setSelectedWeek(e.target.value),
+    style: {
+      background: COLORS.card,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 8,
+      fontSize: 12,
+      cursor: "pointer"
+    }
+  }, ...Object.entries(allWeekDates).map(([key, dates]) => React.createElement("option", {key, value: key}, fmtWeekLabel(dates)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: COLORS.card,
+      padding: "8px 14px",
+      borderRadius: 8,
+      fontSize: 11,
+      color: COLORS.textDim
+    }
+  }, window._calendarData ? "Live data \u2014 last updated " + (window._calendarData.updatedAt || "Mar 31, 2026") : "Sample data \u2014 refresh via Claude"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 2,
+      marginTop: 20,
+      borderBottom: `1px solid ${COLORS.card}`,
+      overflowX: "auto"
+    }
+  }, TABS.map(tab => /*#__PURE__*/React.createElement("button", {
+    key: tab.id,
+    onClick: () => setActiveTab(tab.id),
+    style: {
+      padding: "10px 16px",
+      background: activeTab === tab.id ? COLORS.card : "transparent",
+      color: activeTab === tab.id ? "#f1f5f9" : COLORS.textDim,
+      border: "none",
+      borderRadius: "8px 8px 0 0",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: activeTab === tab.id ? 600 : 400,
+      transition: "all 0.15s",
+      whiteSpace: "nowrap"
+    }
+  }, tab.label)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "24px 40px 60px",
+      maxWidth: 1400,
+      margin: "0 auto"
+    }
+  }, activeTab === "overview" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  },
+  // ── Header + person pills ──
+  React.createElement("div", {style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}},
+    React.createElement("h3", {style:{...headerStyle,margin:0}}, "Availability"),
+    React.createElement("div", {style:{display:"flex",gap:6,flexWrap:"wrap"}},
+      Object.keys(calendarsByPerson).map(p => {
+        const active = ovPeople.includes(p);
+        const pColor = PERSON_COLORS[p] || COLORS.textMuted;
+        return React.createElement("button", {
+          key:p,
+          onClick: () => toggleOvPerson(p),
+          style:{padding:"5px 14px",borderRadius:20,fontSize:12,cursor:"pointer",fontWeight:active?600:400,background:active?`${pColor}25`:COLORS.bg,color:active?pColor:COLORS.textDim,border:`1px solid ${active?pColor:COLORS.border}`,transition:"all 0.15s"}
+        }, p);
+      }),
+      ovPeople.length > 1 && React.createElement("span",{style:{fontSize:11,color:COLORS.textDim,alignSelf:"center",marginLeft:4}},"comparing")
+    )
+  ),
+  // ── Legend ──
+  React.createElement("div", {style:{display:"flex",gap:14,marginBottom:14,flexWrap:"wrap"}},
+    [{color:`${COLORS.external}45`,border:COLORS.external,label:"External"},
+     {color:`${COLORS.internal}20`,border:COLORS.internal,label:"Internal (soft)"},
+     {color:`${COLORS.dns}45`,border:COLORS.dns,label:"DNS / Hold"},
+     {color:`${COLORS.personal}30`,border:COLORS.personal,label:"Personal"},
+     {color:"#334155",border:"#475569",label:"Lunch (blocked)"}
+    ].map(({color,border,label}) =>
+      React.createElement("div",{key:label,style:{display:"flex",alignItems:"center",gap:5}},
+        React.createElement("div",{style:{width:10,height:10,borderRadius:2,background:color,border:`1px solid ${border}`}}),
+        React.createElement("span",{style:{fontSize:10,color:COLORS.textMuted}},label)
+      )
+    )
+  ),
+  // ── Timeline ──
+  React.createElement("div", {style:{display:"flex",gap:0,overflowX:"auto"}},
+    // Time label sidebar
+    React.createElement("div", {style:{width:36,flexShrink:0,position:"relative",height:OV_H,marginTop:44}},
+      OV_HOUR_LABELS.map((lbl,i) =>
+        React.createElement("div",{key:lbl,style:{position:"absolute",top:i*60*OV_PX-6,right:6,fontSize:9,color:COLORS.textDim,lineHeight:1,whiteSpace:"nowrap"}},lbl)
+      )
+    ),
+    // Day columns
+    React.createElement("div",{style:{flex:1,display:"grid",gridTemplateColumns:`repeat(${weekDates.length},1fr)`,gap:4}},
+      weekDates.map(date => {
+        const people = ovPeople;
+        return React.createElement("div",{key:date},
+          // Day header
+          React.createElement("div",{style:{textAlign:"center",marginBottom:4,padding:"5px 4px",background:COLORS.cardAlt,borderRadius:6,height:36,display:"flex",flexDirection:"column",justifyContent:"center"}},
+            React.createElement("div",{style:{fontSize:11,fontWeight:600,color:COLORS.text}},getDayName(date)),
+            React.createElement("div",{style:{fontSize:9,color:COLORS.textMuted}},formatDate(date))
+          ),
+          // Timeline
+          React.createElement("div",{style:{position:"relative",height:OV_H,background:COLORS.bg,borderRadius:6,overflow:"hidden"}},
+            // Hour gridlines
+            OV_HOUR_LABELS.map((_,i) => i > 0 && React.createElement("div",{key:i,style:{position:"absolute",top:i*60*OV_PX,left:0,right:0,borderTop:`1px solid ${COLORS.border}`,opacity:0.35}})),
+            // Early shade
+            React.createElement("div",{style:{position:"absolute",top:0,left:0,right:0,height:30*OV_PX,background:"rgba(148,163,184,0.05)"}}),
+            React.createElement("div",{style:{position:"absolute",top:2,right:3,fontSize:8,color:COLORS.textDim,letterSpacing:"0.02em"}},"early"),
+            // Lunch block
+            React.createElement("div",{style:{position:"absolute",top:(OV_LUNCH_S-OV_DAY_S)*OV_PX,left:0,right:0,height:(OV_LUNCH_E-OV_LUNCH_S)*OV_PX,background:"#334155",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10}},
+              React.createElement("span",{style:{fontSize:8,color:COLORS.textDim,letterSpacing:"0.06em",textTransform:"uppercase"}},"lunch")
+            ),
+            // Events
+            people.map((person,pi) => {
+              const pCount = people.length;
+              const pColor = PERSON_COLORS[person] || COLORS.textMuted;
+              const personEvents = (calendarsByPerson[person]||[]).filter(e=>e.date===date && e.startTime && e.endTime);
+              return personEvents.map((evt,j) => {
+                const sMin = timeToMin(evt.startTime);
+                const eMin = timeToMin(evt.endTime);
+                if(sMin >= OV_DAY_E || eMin <= OV_DAY_S) return null;
+                const clampS = Math.max(sMin, OV_DAY_S);
+                const clampE = Math.min(eMin, OV_DAY_E);
+                const top = (clampS - OV_DAY_S) * OV_PX;
+                const h = Math.max(10,(clampE - clampS) * OV_PX);
+                const hard = isHardEvt(evt.type);
+                const baseColor = people.length > 1 ? pColor : (TYPE_LABELS[evt.type]?.color || COLORS.textDim);
+                const colW = pCount > 1 ? `${(100/pCount).toFixed(1)}%` : "100%";
+                const colL = pCount > 1 ? `${(pi*100/pCount).toFixed(1)}%` : "0";
+                return React.createElement("div",{
+                  key:`${person}-${j}`,
+                  title:`${person}: ${evt.title} (${evt.startTime}–${evt.endTime})`,
+                  style:{position:"absolute",top,left:colL,width:colW,height:h,background:hard?`${baseColor}45`:`${baseColor}18`,borderLeft:`2px solid ${baseColor}`,borderTop:hard?"none":`1px dashed ${baseColor}55`,boxSizing:"border-box",overflow:"hidden",padding:h>16?"2px 4px":"1px 2px",zIndex:hard?3:2,cursor:"default"}
+                },
+                  h > 16 && React.createElement("div",{style:{fontSize:8,color:baseColor,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}},evt.title)
+                );
+              });
+            })
+          )
+        );
+      })
+    )
+  )
+  ),
+  /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 20,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...sectionStyle,
+      flex: 1,
+      minWidth: 320
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, "Time Distribution"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ChartPie, {
+    data: typeDistribution,
+    height: 260
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      marginTop: 16,
+      flexWrap: "wrap"
+    }
+  }, typeDistribution.map((d, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+      background: d.color
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted
+    }
+  }, d.name)))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...sectionStyle,
+      flex: 1,
+      minWidth: 320
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, "Meeting Load by Day"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ChartBar, {
+    data: dowLoad,
+    dataKey: "hours",
+    labelKey: "day",
+    color: "#818cf8",
+    height: 260
+  }))))
+  ), activeTab === "schedule" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14}
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {style:{...headerStyle,margin:0}}, "Daily Schedule"), /*#__PURE__*/React.createElement("p", {style:{...subStyle,margin:"4px 0 0"}}, "Generate a clean schedule to send to your exec.")), /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:8,alignItems:"center"}}, /*#__PURE__*/React.createElement("select", {
+    value: scheduleDate,
+    onChange: e => { setScheduleDate(e.target.value); setScheduleCopied(false); },
+    style: {background:COLORS.bg, color:COLORS.text, border:`1px solid ${COLORS.border}`, padding:"6px 10px", borderRadius:6, fontSize:12, cursor:"pointer"}
+  }, /*#__PURE__*/React.createElement("option", {value:""}, "Select a date"), [...new Set([...weekDates, ...Object.keys(byDate)])].sort().map(d => /*#__PURE__*/React.createElement("option", {key:d, value:d}, getDayName(d), " ", formatDate(d)))))), scheduleDate ? (() => {
+    const dayEvents = (byDate[scheduleDate] || []).filter(e => e.type !== "dns" && e.type !== "hold").sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime));
+    const schedText = `Schedule:\n${dayEvents.length > 0 ? dayEvents.map(e => { const t = formatTime(e.startTime).replace(":00","").toLowerCase().replace(/^0/,""); return `${t} ${e.title}`; }).join("\n") : "No meetings"}`;
+    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{background:COLORS.bg,borderRadius:8,padding:"16px 20px",fontFamily:"monospace",fontSize:13,lineHeight:1.8,color:COLORS.text,whiteSpace:"pre-wrap"}}, schedText), /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:10,marginTop:12,alignItems:"center"}}, /*#__PURE__*/React.createElement("button", {
+      onClick: () => { navigator.clipboard.writeText(schedText).then(() => { setScheduleCopied(true); setTimeout(() => setScheduleCopied(false), 2000); }); },
+      style: {padding:"8px 16px",borderRadius:6,fontSize:12,cursor:"pointer",background:scheduleCopied?"#065f46":COLORS.internal,color:"#fff",border:"none",fontWeight:600,transition:"background 0.2s"}
+    }, scheduleCopied ? "Copied!" : "Copy for Email"), /*#__PURE__*/React.createElement("span", {style:{fontSize:11,color:COLORS.textDim}}, dayEvents.length, " event", dayEvents.length !== 1 ? "s" : "", " on ", getDayName(scheduleDate), " ", formatDate(scheduleDate))));
+  })() : /*#__PURE__*/React.createElement("div", {style:{background:COLORS.bg,borderRadius:8,padding:"24px",textAlign:"center",fontSize:12,color:COLORS.textDim}}, "Select a date above to generate the schedule."))),
+activeTab === "availability" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...sectionStyle,
+      paddingBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      ...headerStyle,
+      margin: 0
+    }
+  }, "Calendars to Check"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textDim
+    }
+  }, selectedPeople.length === 1 ? "Single calendar" : `Overlapping ${selectedPeople.length} calendars`)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, allPeople.map(person => {
+    const isSelected = selectedPeople.includes(person);
+    const personColor = PERSON_COLORS[person] || COLORS.textMuted;
+    return /*#__PURE__*/React.createElement("button", {
+      key: person,
+      onClick: () => togglePerson(person),
+      style: {
+        padding: "8px 16px",
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: isSelected ? 600 : 400,
+        cursor: "pointer",
+        transition: "all 0.15s",
+        background: isSelected ? `${personColor}20` : COLORS.bg,
+        border: `2px solid ${isSelected ? personColor : COLORS.border}`,
+        color: isSelected ? personColor : COLORS.textDim
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        borderRadius: "50%",
+        background: isSelected ? personColor : COLORS.textDim,
+        marginRight: 8
+      }
+    }), person);
+  })), selectedPeople.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: COLORS.dns,
+      fontSize: 12,
+      marginTop: 8
+    }
+  }, "Select at least one calendar to see availability.")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...sectionStyle,
+      paddingBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      ...headerStyle,
+      marginBottom: 12
+    }
+  }, "Date Range"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAvailMode("week"),
+    style: {
+      padding: "7px 16px",
+      borderRadius: 6,
+      fontSize: 12,
+      fontWeight: availMode === "week" ? 600 : 400,
+      cursor: "pointer",
+      border: `1px solid ${availMode === "week" ? COLORS.internal : COLORS.border}`,
+      background: availMode === "week" ? `${COLORS.internal}20` : COLORS.bg,
+      color: availMode === "week" ? COLORS.internal : COLORS.textDim
+    }
+  }, "By Week"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAvailMode("custom"),
+    style: {
+      padding: "7px 16px",
+      borderRadius: 6,
+      fontSize: 12,
+      fontWeight: availMode === "custom" ? 600 : 400,
+      cursor: "pointer",
+      border: `1px solid ${availMode === "custom" ? COLORS.internal : COLORS.border}`,
+      background: availMode === "custom" ? `${COLORS.internal}20` : COLORS.bg,
+      color: availMode === "custom" ? COLORS.internal : COLORS.textDim
+    }
+  }, "Pick Days")), availMode === "week" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, Object.entries(availWeekDates).map(([key, dates]) => /*#__PURE__*/React.createElement("button", {
+    key: key,
+    onClick: () => setAvailWeek(key),
+    style: {
+      padding: "8px 16px",
+      borderRadius: 8,
+      fontSize: 12,
+      cursor: "pointer",
+      border: `2px solid ${availWeek === key ? COLORS.external : COLORS.border}`,
+      background: availWeek === key ? `${COLORS.external}15` : COLORS.bg,
+      color: availWeek === key ? COLORS.external : COLORS.textDim,
+      fontWeight: availWeek === key ? 600 : 400
+    }
+  }, getDayName(dates[0]), " ", formatDate(dates[0]), " \u2014 ", getDayName(dates[dates.length - 1]), " ", formatDate(dates[dates.length - 1])))), availMode === "custom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      marginBottom: 8
+    }
+  }, "Click dates to toggle, or type a date to add."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap",
+      marginBottom: 10
+    }
+  }, allKnownDates.filter(d => !["Sat", "Sun"].includes(getDayName(d))).map(date => {
+    const isSelected = customDates.includes(date);
+    return /*#__PURE__*/React.createElement("button", {
+      key: date,
+      onClick: () => toggleCustomDate(date),
+      style: {
+        padding: "6px 12px",
+        borderRadius: 6,
+        fontSize: 11,
+        cursor: "pointer",
+        border: `1px solid ${isSelected ? COLORS.external : COLORS.border}`,
+        background: isSelected ? `${COLORS.external}20` : COLORS.bg,
+        color: isSelected ? COLORS.external : COLORS.textDim,
+        fontWeight: isSelected ? 600 : 400
+      }
+    }, getDayName(date), " ", formatDate(date));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: customDateInput,
+    onChange: e => setCustomDateInput(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addCustomDate(),
+    placeholder: "YYYY-MM-DD",
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "6px 12px",
+      borderRadius: 6,
+      fontSize: 12,
+      fontFamily: "monospace",
+      width: 140
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addCustomDate,
+    style: {
+      padding: "6px 14px",
+      borderRadius: 6,
+      fontSize: 12,
+      cursor: "pointer",
+      background: COLORS.internal,
+      color: "#fff",
+      border: "none",
+      fontWeight: 600
+    }
+  }, "Add"), customDates.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCustomDates([]),
+    style: {
+      padding: "6px 14px",
+      borderRadius: 6,
+      fontSize: 12,
+      cursor: "pointer",
+      background: "transparent",
+      color: COLORS.textDim,
+      border: `1px solid ${COLORS.border}`
+    }
+  }, "Clear"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textDim
+    }
+  }, customDates.length, " day", customDates.length !== 1 ? "s" : "", " selected")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...sectionStyle,
+      paddingBottom: showPrefs ? 20 : 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowPrefs(!showPrefs),
+    style: {
+      background: "none",
+      border: "none",
+      color: COLORS.textMuted,
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 500,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: 0
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      transition: "transform 0.2s",
+      display: "inline-block",
+      transform: showPrefs ? "rotate(90deg)" : "rotate(0deg)"
+    }
+  }, "\u25B6"), "Calendar Preferences", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: COLORS.textDim,
+      fontWeight: 400
+    }
+  }, "(", formatTime(prefs.startHour), "-", formatTime(prefs.endHour), ", ", prefs.minSlot, "min min, lunch ", formatTime(prefs.lunchStart), "-", formatTime(prefs.lunchEnd), ")")), showPrefs && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Working Hours Start"), /*#__PURE__*/React.createElement("select", {
+    value: prefs.startHour,
+    onChange: e => updatePref("startHour", e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 6,
+      fontSize: 13,
+      width: "100%",
+      cursor: "pointer"
+    }
+  }, ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00"].map(t => /*#__PURE__*/React.createElement("option", {
+    key: t,
+    value: t
+  }, formatTime(t))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Working Hours End"), /*#__PURE__*/React.createElement("select", {
+    value: prefs.endHour,
+    onChange: e => updatePref("endHour", e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 6,
+      fontSize: 13,
+      width: "100%",
+      cursor: "pointer"
+    }
+  }, ["16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00"].map(t => /*#__PURE__*/React.createElement("option", {
+    key: t,
+    value: t
+  }, formatTime(t))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Lunch Block Start"), /*#__PURE__*/React.createElement("select", {
+    value: prefs.lunchStart,
+    onChange: e => updatePref("lunchStart", e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 6,
+      fontSize: 13,
+      width: "100%",
+      cursor: "pointer"
+    }
+  }, ["11:30", "12:00", "12:30", "13:00", "13:30"].map(t => /*#__PURE__*/React.createElement("option", {
+    key: t,
+    value: t
+  }, formatTime(t))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Lunch Block End"), /*#__PURE__*/React.createElement("select", {
+    value: prefs.lunchEnd,
+    onChange: e => updatePref("lunchEnd", e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 6,
+      fontSize: 13,
+      width: "100%",
+      cursor: "pointer"
+    }
+  }, ["13:00", "13:30", "14:00", "14:30", "15:00"].map(t => /*#__PURE__*/React.createElement("option", {
+    key: t,
+    value: t
+  }, formatTime(t))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Minimum Slot Length"), /*#__PURE__*/React.createElement("select", {
+    value: prefs.minSlot,
+    onChange: e => updatePref("minSlot", parseInt(e.target.value)),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 6,
+      fontSize: 13,
+      width: "100%",
+      cursor: "pointer"
+    }
+  }, [15, 30, 45, 60, 90].map(m => /*#__PURE__*/React.createElement("option", {
+    key: m,
+    value: m
+  }, m, " min")))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "No Meetings Before"), /*#__PURE__*/React.createElement("select", {
+    value: prefs.noMorningBefore,
+    onChange: e => updatePref("noMorningBefore", e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "8px 12px",
+      borderRadius: 6,
+      fontSize: 13,
+      width: "100%",
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "No restriction"), ["09:00", "09:30", "10:00", "10:30", "11:00"].map(t => /*#__PURE__*/React.createElement("option", {
+    key: t,
+    value: t
+  }, formatTime(t))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      paddingTop: 18
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => updatePref("fridayAfternoonOff", !prefs.fridayAfternoonOff),
+    style: {
+      width: 40,
+      height: 22,
+      borderRadius: 11,
+      border: "none",
+      cursor: "pointer",
+      background: prefs.fridayAfternoonOff ? COLORS.external : COLORS.border,
+      position: "relative",
+      transition: "background 0.2s"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 16,
+      height: 16,
+      borderRadius: "50%",
+      background: "#fff",
+      position: "absolute",
+      top: 3,
+      left: prefs.fridayAfternoonOff ? 21 : 3,
+      transition: "left 0.2s"
+    }
+  })), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: COLORS.textMuted
+    }
+  }, "Keep Friday afternoons clear")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      gridColumn: "1 / -1",
+      marginTop: 8,
+      borderTop: `1px solid ${COLORS.border}`,
+      paddingTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600,
+      color: "#f1f5f9"
+    }
+  }, "Meeting Flexibility Rules"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted
+    }
+  }, "Default tier:"), /*#__PURE__*/React.createElement("select", {
+    value: defaultFlexTier,
+    onChange: e => setDefaultFlexTier(e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "4px 8px",
+      borderRadius: 4,
+      fontSize: 11,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "never"
+  }, "Never Move"), /*#__PURE__*/React.createElement("option", {
+    value: "sometimes"
+  }, "Sometimes Move"), /*#__PURE__*/React.createElement("option", {
+    value: "often"
+  }, "Often Move")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      marginBottom: 10,
+      lineHeight: 1.5
+    }
+  }, "Rules are checked top to bottom. First match wins. Meetings with ", largeGroupThreshold, "+ attendees auto-classify as Never Move."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted
+    }
+  }, "Large group threshold:"), /*#__PURE__*/React.createElement("select", {
+    value: largeGroupThreshold,
+    onChange: e => setLargeGroupThreshold(parseInt(e.target.value)),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "4px 8px",
+      borderRadius: 4,
+      fontSize: 11,
+      cursor: "pointer"
+    }
+  }, [3, 4, 5, 6, 8, 10].map(n => /*#__PURE__*/React.createElement("option", {
+    key: n,
+    value: n
+  }, n, "+ attendees")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+      marginBottom: 12
+    }
+  }, flexRules.map((rule, idx) => {
+    const tierInfo = FLEX_TIERS[rule.tier];
+    return /*#__PURE__*/React.createElement("div", {
+      key: idx,
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        background: COLORS.bg,
+        padding: "8px 12px",
+        borderRadius: 6,
+        borderLeft: `3px solid ${tierInfo.color}`
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: tierInfo.bg,
+        color: tierInfo.color,
+        padding: "2px 8px",
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 700,
+        minWidth: 90,
+        textAlign: "center"
+      }
+    }, tierInfo.label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: rule.type === "keyword" ? "#312e8140" : "#0e4a5c40",
+        color: rule.type === "keyword" ? "#a5b4fc" : "#67e8f9",
+        padding: "2px 8px",
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 600
+      }
+    }, rule.type === "keyword" ? "TITLE" : "ATTENDEE"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 12,
+        color: COLORS.text,
+        flex: 1
+      }
+    }, rule.values.join(", ")), /*#__PURE__*/React.createElement("button", {
+      onClick: () => removeFlexRule(idx),
+      style: {
+        background: "none",
+        border: "none",
+        color: COLORS.textDim,
+        cursor: "pointer",
+        fontSize: 14,
+        padding: "0 4px"
+      }
+    }, "x"));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      alignItems: "center",
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    value: newRuleType,
+    onChange: e => setNewRuleType(e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "6px 8px",
+      borderRadius: 6,
+      fontSize: 11,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "keyword"
+  }, "Title contains"), /*#__PURE__*/React.createElement("option", {
+    value: "attendee"
+  }, "Attendee name")), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: newRuleValue,
+    onChange: e => setNewRuleValue(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addFlexRule(),
+    placeholder: newRuleType === "keyword" ? "e.g. leadership" : "e.g. Jordan Park",
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "6px 10px",
+      borderRadius: 6,
+      fontSize: 12,
+      flex: 1,
+      minWidth: 140
+    }
+  }), /*#__PURE__*/React.createElement("select", {
+    value: newRuleTier,
+    onChange: e => setNewRuleTier(e.target.value),
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "6px 8px",
+      borderRadius: 6,
+      fontSize: 11,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "never"
+  }, "Never Move"), /*#__PURE__*/React.createElement("option", {
+    value: "sometimes"
+  }, "Sometimes Move"), /*#__PURE__*/React.createElement("option", {
+    value: "often"
+  }, "Often Move")), /*#__PURE__*/React.createElement("button", {
+    onClick: addFlexRule,
+    style: {
+      padding: "6px 14px",
+      borderRadius: 6,
+      fontSize: 12,
+      cursor: "pointer",
+      background: COLORS.internal,
+      color: "#fff",
+      border: "none",
+      fontWeight: 600
+    }
+  }, "Add Rule")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      marginTop: 14,
+      paddingTop: 10,
+      borderTop: `1px solid ${COLORS.border}`
+    }
+  }, Object.entries(FLEX_TIERS).map(([key, tier]) => /*#__PURE__*/React.createElement("div", {
+    key: key,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+      background: tier.slotBg,
+      border: `2px solid ${tier.slotBorder}`
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted
+    }
+  }, tier.label))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+      background: "#065f4625",
+      border: "2px solid #34d399"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted
+    }
+  }, "Open")))))), /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, selectedPeople.length > 1 ? "Shared Open Windows" : "Open Windows"), /*#__PURE__*/React.createElement("p", {
+    style: subStyle
+  }, selectedPeople.length > 1 ? `Times when ${selectedPeople.join(", ")} are all free. 8:30 AM - 6:00 PM, excluding lunch (1:00-2:30 PM).` : "Available slots between 8:30 AM and 6:00 PM, excluding assumed lunch (1:00-2:30 PM). Holds shown as movable."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 16
+    }
+  }, avail.map((day, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      background: COLORS.bg,
+      borderRadius: 8,
+      padding: "16px 20px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600,
+      color: "#f1f5f9",
+      fontSize: 15
+    }
+  }, getFullDay(day.date), ", ", formatDate(day.date))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center"
+    }
+  }, (() => {
+    const openCount = day.slots.filter(s => s.tier === "open").length;
+    const softCount = day.slots.filter(s => s.tier !== "open").length;
+    if (day.slots.length === 0) return /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 12,
+        color: COLORS.dns
+      }
+    }, "No availability");
+    return /*#__PURE__*/React.createElement(React.Fragment, null, openCount > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: "#34d399"
+      }
+    }, openCount, " open"), softCount > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: COLORS.personal
+      }
+    }, softCount, " soft conflict", softCount > 1 ? "s" : ""));
+  })())), day.slots.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      flexWrap: "wrap",
+      marginBottom: 12
+    }
+  }, day.slots.map((slot, j) => {
+    const isOpen = slot.tier === "open";
+    const tierInfo = isOpen ? {
+      color: "#34d399",
+      slotBg: "#065f4620",
+      slotBorder: "#065f46"
+    } : FLEX_TIERS[slot.tier] || FLEX_TIERS.sometimes;
+    return /*#__PURE__*/React.createElement("div", {
+      key: j,
+      style: {
+        background: tierInfo.slotBg,
+        border: `1px solid ${tierInfo.slotBorder}`,
+        borderRadius: 8,
+        padding: "10px 16px",
+        minWidth: 160
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        color: tierInfo.color,
+        fontSize: 14
+      }
+    }, formatTime(slot.start), " - ", formatTime(slot.end)), !isOpen && /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: tierInfo.bg,
+        color: tierInfo.color,
+        padding: "2px 8px",
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 700,
+        whiteSpace: "nowrap"
+      }
+    }, FLEX_TIERS[slot.tier]?.label || slot.tier)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: COLORS.textMuted,
+        marginTop: 2
+      }
+    }, slot.minutes, " min ", isOpen ? "available" : "-- soft conflict"), slot.conflicts && slot.conflicts.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6,
+        borderTop: `1px solid ${tierInfo.slotBorder}40`,
+        paddingTop: 4
+      }
+    }, slot.conflicts.map((c, k) => /*#__PURE__*/React.createElement("div", {
+      key: k,
+      style: {
+        fontSize: 10,
+        color: tierInfo.color,
+        opacity: 0.85,
+        padding: "1px 0"
+      }
+    }, c.title, c.person && c.person !== "_system" && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: COLORS.textDim
+      }
+    }, " (", c.person, ")")))));
+  })) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: COLORS.textDim,
+      fontSize: 12,
+      fontStyle: "italic",
+      marginBottom: 12
+    }
+  }, "Fully booked or blocked across selected calendars"), selectedPeople.length > 1 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: `1px solid ${COLORS.border}`,
+      paddingTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textDim,
+      marginBottom: 8,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Per-person schedule"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      flexWrap: "wrap"
+    }
+  }, selectedPeople.map(person => {
+    const personEvents = (day.perPersonConflicts[person] || []).sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime));
+    const personColor = PERSON_COLORS[person] || COLORS.textMuted;
+    return /*#__PURE__*/React.createElement("div", {
+      key: person,
+      style: {
+        flex: 1,
+        minWidth: 200
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 600,
+        color: personColor,
+        marginBottom: 6,
+        display: "flex",
+        alignItems: "center",
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: "inline-block",
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        background: personColor
+      }
+    }), person, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 400,
+        color: COLORS.textDim
+      }
+    }, "(", personEvents.length, " events)")), personEvents.length > 0 ? personEvents.map((e, k) => /*#__PURE__*/React.createElement("div", {
+      key: k,
+      style: {
+        fontSize: 11,
+        color: COLORS.textMuted,
+        padding: "2px 0",
+        display: "flex",
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: COLORS.textDim,
+        minWidth: 90,
+        flexShrink: 0
+      }
+    }, formatTime(e.startTime), "-", formatTime(e.endTime)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: COLORS.text
+      }
+    }, e.title), e.type === "dns" && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: COLORS.dns,
+        fontSize: 9,
+        fontWeight: 700
+      }
+    }, "DNS"), e.type === "hold" && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: COLORS.hold,
+        fontSize: 9,
+        fontWeight: 700
+      }
+    }, "HOLD"))) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: COLORS.external
+      }
+    }, "Clear all day"));
+  }))), day.holds.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10
+    }
+  }, day.holds.map((h, k) => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    style: {
+      fontSize: 11,
+      color: COLORS.hold,
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "#4c1d95",
+      padding: "1px 6px",
+      borderRadius: 3,
+      fontSize: 9
+    }
+  }, "HOLD"), h.person, ": ", h.title, " (", formatTime(h.startTime), "-", formatTime(h.endTime), ") \u2014 movable"))))))), avail.some(day => day.slots.length > 0) && (() => {
+    const availText = avail.filter(day => day.slots.length > 0).map(day => {
+      const dayLabel = `${getFullDay(day.date)} ${formatDate(day.date)}`;
+      const slots = day.slots.map(slot => {
+        const time = `${formatTime(slot.start)}-${formatTime(slot.end)}`;
+        if (slot.tier === "open") return time;
+        const tag = slot.tier === "sometimes" ? "(soft conflict)" : slot.tier === "often" ? "(flexible)" : "(would need to move)";
+        return `${time} ${tag}`;
+      });
+      return `${dayLabel}\n${slots.join("\n")}`;
+    }).join("\n\n");
+    return /*#__PURE__*/React.createElement("div", {
+      style: sectionStyle
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 12
+      }
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: {
+        ...headerStyle,
+        margin: 0
+      }
+    }, "Copy Availability"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        navigator.clipboard.writeText(availText).then(() => {
+          setAvailCopied(true);
+          setTimeout(() => setAvailCopied(false), 2000);
+        });
+      },
+      style: {
+        padding: "8px 16px",
+        borderRadius: 6,
+        fontSize: 12,
+        cursor: "pointer",
+        background: availCopied ? "#065f46" : COLORS.internal,
+        color: "#fff",
+        border: "none",
+        fontWeight: 600,
+        transition: "background 0.2s"
+      }
+    }, availCopied ? "Copied!" : "Copy for Email")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: COLORS.bg,
+        borderRadius: 8,
+        padding: "16px 20px",
+        fontFamily: "monospace",
+        fontSize: 12,
+        lineHeight: 1.8,
+        color: COLORS.text,
+        whiteSpace: "pre-wrap"
+      }
+    }, availText));
+  })()), activeTab === "conflicts" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...sectionStyle,
+      paddingBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      ...headerStyle,
+      marginBottom: 8
+    }
+  }, "People to Check"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      marginBottom: 10
+    }
+  }, allPeople.map(person => {
+    const isSelected = ccPeople.includes(person);
+    const personColor = PERSON_COLORS[person] || COLORS.textMuted;
+    const initials = getInitials(person);
+    return /*#__PURE__*/React.createElement("button", {
+      key: person,
+      onClick: () => setCcPeople(prev => prev.includes(person) ? prev.filter(p => p !== person) : [...prev, person]),
+      style: {
+        padding: "7px 14px",
+        borderRadius: 8,
+        fontSize: 12,
+        cursor: "pointer",
+        background: isSelected ? `${personColor}20` : COLORS.bg,
+        border: `2px solid ${isSelected ? personColor : COLORS.border}`,
+        color: isSelected ? personColor : COLORS.textDim,
+        fontWeight: isSelected ? 600 : 400
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 700,
+        marginRight: 4
+      }
+    }, initials), " ", person);
+  })), /*#__PURE__*/React.createElement("details", {
+    style: {
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("summary", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textDim,
+      cursor: "pointer"
+    }
+  }, "Manage people / initials"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      display: "flex",
+      flexDirection: "column",
+      gap: 4
+    }
+  }, peopleMap.map((p, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      color: COLORS.internal,
+      minWidth: 30
+    }
+  }, p.initials), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: COLORS.text
+    }
+  }, p.name), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPeopleMap(prev => prev.filter((_, i) => i !== idx)),
+    style: {
+      background: "none",
+      border: "none",
+      color: COLORS.textDim,
+      cursor: "pointer",
+      fontSize: 12
+    }
+  }, "x"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      alignItems: "center",
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: newPersonName,
+    onChange: e => setNewPersonName(e.target.value),
+    placeholder: "Full Name",
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "4px 8px",
+      borderRadius: 4,
+      fontSize: 11,
+      width: 120
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: newPersonInitials,
+    onChange: e => setNewPersonInitials(e.target.value),
+    placeholder: "XX",
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      padding: "4px 8px",
+      borderRadius: 4,
+      fontSize: 11,
+      width: 40,
+      textAlign: "center"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (newPersonName.trim() && newPersonInitials.trim()) {
+        setPeopleMap(prev => [...prev, {
+          name: newPersonName.trim(),
+          initials: newPersonInitials.trim().toUpperCase()
+        }]);
+        setNewPersonName("");
+        setNewPersonInitials("");
+      }
+    },
+    style: {
+      padding: "4px 10px",
+      borderRadius: 4,
+      fontSize: 11,
+      cursor: "pointer",
+      background: COLORS.internal,
+      color: "#fff",
+      border: "none"
+    }
+  }, "Add"))))), /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, "Proposed Times"), /*#__PURE__*/React.createElement("p", {
+    style: subStyle
+  }, "Day headers as \"Day YYYY-MM-DD\", time windows below each day as \"starttime-endtime\" (e.g., 9:00am-10:00am)."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 2,
+      minWidth: 280
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: ccInput,
+    onChange: e => setCcInput(e.target.value),
+    style: {
+      width: "100%",
+      minHeight: 160,
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 13,
+      fontFamily: "monospace",
+      resize: "vertical",
+      lineHeight: 1.6
+    },
+    placeholder: "Tue 2026-04-07\n9:00am-10:00am\n2:00pm-3:00pm\nWed 2026-04-08\n9:00am-10:00am"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 200
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      display: "block",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Notes (optional)"), /*#__PURE__*/React.createElement("textarea", {
+    value: ccNotes,
+    onChange: e => setCcNotes(e.target.value),
+    style: {
+      width: "100%",
+      minHeight: 60,
+      background: COLORS.bg,
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 8,
+      padding: 10,
+      fontSize: 12,
+      resize: "vertical"
+    },
+    placeholder: "e.g., Tue is tight. Wed has the most flexibility in the afternoon."
+  })))), ccResults.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, "Results"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12
+    }
+  }, ccResults.map((r, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      background: COLORS.bg,
+      borderRadius: 8,
+      padding: "14px 18px",
+      borderLeft: `4px solid ${r.allClear ? COLORS.external : COLORS.dns}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600,
+      fontSize: 14,
+      color: "#f1f5f9"
+    }
+  }, getDayName(r.date), ", ", formatDate(r.date), " @ ", r.startTime, "-", r.endTime), /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: r.allClear ? "#065f46" : "#7f1d1d",
+      color: r.allClear ? "#6ee7b7" : "#fca5a5",
+      padding: "3px 10px",
+      borderRadius: 6,
+      fontSize: 10,
+      fontWeight: 700
+    }
+  }, r.allClear ? "ALL CLEAR" : "CONFLICTS")), r.personResults.map((pr, j) => {
+    const personColor = PERSON_COLORS[pr.person] || COLORS.textMuted;
+    return /*#__PURE__*/React.createElement("div", {
+      key: j,
+      style: {
+        marginBottom: j < r.personResults.length - 1 ? 8 : 0
+      }
+    }, pr.before.map((e, k) => {
+      const sharedWith = r.personResults.filter(op => op.person !== pr.person && op.before.some(oe => oe.title === e.title && oe.startTime === e.startTime));
+      const allInitials = [pr.initials, ...sharedWith.map(op => op.initials)].join("/");
+      return /*#__PURE__*/React.createElement("div", {
+        key: `b-${k}`,
+        style: {
+          fontSize: 12,
+          color: COLORS.textDim,
+          padding: "1px 0"
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: COLORS.textMuted
+        }
+      }, formatTimeAMPM(timeToMin(e.startTime))), " ", /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 600,
+          color: personColor
+        }
+      }, allInitials, ":"), " ", e.title);
+    }), pr.conflicts.map((e, k) => {
+      const flex = classifyFlex(e.title, flexRules, defaultFlexTier, e.attendees || [], largeGroupThreshold);
+      const wouldReschedule = flex === "often" || flex === "sometimes";
+      const sharedWith = r.personResults.filter(op => op.person !== pr.person && op.conflicts.some(oe => oe.title === e.title && oe.startTime === e.startTime));
+      const allInitials = [pr.initials, ...sharedWith.map(op => op.initials)].join("/");
+      return /*#__PURE__*/React.createElement("div", {
+        key: `c-${k}`,
+        style: {
+          fontSize: 12,
+          padding: "2px 0",
+          color: wouldReschedule ? COLORS.personal : COLORS.dns,
+          fontWeight: 600
+        }
+      }, /*#__PURE__*/React.createElement("span", null, formatTimeAMPM(timeToMin(e.startTime))), " ", /*#__PURE__*/React.createElement("span", null, allInitials, ":"), " ", e.title, wouldReschedule && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 400,
+          fontSize: 10,
+          marginLeft: 6,
+          opacity: 0.8
+        }
+      }, "(would reschedule)"));
+    }), pr.after.map((e, k) => {
+      const sharedWith = r.personResults.filter(op => op.person !== pr.person && op.after.some(oe => oe.title === e.title && oe.startTime === e.startTime));
+      const allInitials = [pr.initials, ...sharedWith.map(op => op.initials)].join("/");
+      return /*#__PURE__*/React.createElement("div", {
+        key: `a-${k}`,
+        style: {
+          fontSize: 12,
+          color: COLORS.textDim,
+          padding: "1px 0"
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: COLORS.textMuted
+        }
+      }, formatTimeAMPM(timeToMin(e.startTime))), " ", /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 600,
+          color: personColor
+        }
+      }, allInitials, ":"), " ", e.title);
+    }), pr.clear && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: COLORS.external,
+        padding: "1px 0"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 600
+      }
+    }, pr.initials, ":"), " clear"));
+  }))))), ccResults.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      ...headerStyle,
+      margin: 0
+    }
+  }, "Copy for Email"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      navigator.clipboard.writeText(ccEmailText);
+      setCcCopied(true);
+      setTimeout(() => setCcCopied(false), 2000);
+    },
+    style: {
+      padding: "7px 16px",
+      borderRadius: 6,
+      fontSize: 12,
+      cursor: "pointer",
+      fontWeight: 600,
+      background: ccCopied ? COLORS.external : COLORS.internal,
+      color: "#fff",
+      border: "none",
+      transition: "background 0.2s"
+    }
+  }, ccCopied ? "Copied!" : "Copy to Clipboard")), /*#__PURE__*/React.createElement("pre", {
+    style: {
+      background: COLORS.bg,
+      color: COLORS.text,
+      padding: 16,
+      borderRadius: 8,
+      fontSize: 13,
+      lineHeight: 1.7,
+      fontFamily: "monospace",
+      border: `1px solid ${COLORS.border}`,
+      whiteSpace: "pre-wrap",
+      margin: 0,
+      maxHeight: 400,
+      overflow: "auto"
+    }
+  }, ccEmailText))), activeTab === "mix" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, "Meeting Classification"), /*#__PURE__*/React.createElement("p", {
+    style: subStyle
+  }, "Every meeting categorized by type."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 24,
+      flexWrap: "wrap"
+    }
+  }, (() => {
+    const meetingTypes = ["internal", "external", "personal"];
+    const meetingEvents = sampleEvents.filter(e => meetingTypes.includes(e.type));
+    const meetingHours = meetingEvents.reduce((s, e) => s + (timeToMin(e.endTime) - timeToMin(e.startTime)) / 60, 0);
+    const uniqueDates = [...new Set(sampleEvents.map(e => e.date))];
+    const workdayHoursPerDay = (timeToMin(prefs.endHour) - timeToMin(prefs.startHour)) / 60;
+    const totalWorkHours = uniqueDates.length * workdayHoursPerDay;
+    const freeHours = Math.max(0, totalWorkHours - meetingHours);
+    return meetingTypes.map(type => {
+      const items = sampleEvents.filter(e => e.type === type);
+      if (items.length === 0) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        key: type,
+        style: {
+          flex: 1,
+          minWidth: 280
+        }
+      }, /*#__PURE__*/React.createElement("h4", {
+        style: {
+          color: TYPE_LABELS[type]?.color || COLORS.textMuted,
+          margin: "0 0 12px",
+          fontSize: 13,
+          fontWeight: 600,
+          textTransform: "uppercase"
+        }
+      }, TYPE_LABELS[type]?.label || type, " (", items.length, ")"), items.map((m, i) => /*#__PURE__*/React.createElement("div", {
+        key: i,
+        style: {
+          padding: "8px 12px",
+          background: COLORS.bg,
+          borderRadius: 6,
+          marginBottom: 5,
+          fontSize: 12,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          maxWidth: "65%"
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: COLORS.text
+        }
+      }, m.title), /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: COLORS.textDim,
+          marginLeft: 8,
+          fontSize: 10
+        }
+      }, getDayName(m.date), " ", formatDate(m.date))), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          flexShrink: 0
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: COLORS.textMuted,
+          fontSize: 10
+        }
+      }, formatDuration(m.startTime, m.endTime)), m.recurring && /*#__PURE__*/React.createElement("span", {
+        style: {
+          background: "#312e81",
+          color: "#a5b4fc",
+          padding: "1px 6px",
+          borderRadius: 3,
+          fontSize: 9
+        }
+      }, "recurring"), m.entity && /*#__PURE__*/React.createElement("span", {
+        style: {
+          background: "#14532d",
+          color: "#86efac",
+          padding: "1px 6px",
+          borderRadius: 3,
+          fontSize: 9
+        }
+      }, m.entity)))));
+    }).concat(/*#__PURE__*/React.createElement("div", {
+      key: "free",
+      style: {
+        flex: 1,
+        minWidth: 280
+      }
+    }, /*#__PURE__*/React.createElement("h4", {
+      style: {
+        color: "#34d399",
+        margin: "0 0 12px",
+        fontSize: 13,
+        fontWeight: 600,
+        textTransform: "uppercase"
+      }
+    }, "Not in Meetings"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "16px 20px",
+        background: COLORS.bg,
+        borderRadius: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "baseline",
+        gap: 8,
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 28,
+        fontWeight: 700,
+        color: "#34d399"
+      }
+    }, freeHours.toFixed(1), "h"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 12,
+        color: COLORS.textMuted
+      }
+    }, "of ", totalWorkHours.toFixed(0), "h working hours")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: "100%",
+        height: 8,
+        background: COLORS.bg,
+        borderRadius: 4,
+        border: `1px solid ${COLORS.border}`,
+        overflow: "hidden",
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: `${totalWorkHours > 0 ? freeHours / totalWorkHours * 100 : 0}%`,
+        height: "100%",
+        background: "#34d399",
+        borderRadius: 4
+      }
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: COLORS.textMuted
+      }
+    }, totalWorkHours > 0 ? Math.round(freeHours / totalWorkHours * 100) : 0, "% of working hours are meeting-free"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: COLORS.textDim,
+        marginTop: 6
+      }
+    }, "Based on ", uniqueDates.length, " days, ", prefs.startHour, " to ", prefs.endHour))));
+  })()))), activeTab === "recurring" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: sectionStyle
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: headerStyle
+  }, "Recurring Meeting Burden"), (() => {
+    const dates = sampleEvents.filter(e => e.recurring && e.type === "internal").map(e => e.date).sort();
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    const spanDays = first && last ? Math.round((new Date(last) - new Date(first)) / (1000 * 60 * 60 * 24)) + 1 : 0;
+    const spanWeeks = Math.max(1, Math.round(spanDays / 7));
+    return /*#__PURE__*/React.createElement("p", {
+      style: subStyle
+    }, "Internal recurring meetings ranked by estimated weekly time commitment.", first && last && /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: "block",
+        marginTop: 4,
+        fontSize: 11,
+        color: COLORS.textDim
+      }
+    }, "Period: ", formatDate(first), " to ", formatDate(last), " (", spanWeeks, " week", spanWeeks !== 1 ? "s" : "", ")"));
+  })(), /*#__PURE__*/React.createElement("table", {
+    style: {
+      width: "100%",
+      borderCollapse: "collapse",
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: {
+      borderBottom: `1px solid ${COLORS.border}`
+    }
+  }, /*#__PURE__*/React.createElement("th", {
+    style: {
+      textAlign: "left",
+      padding: "10px 12px",
+      color: COLORS.textMuted,
+      fontWeight: 500
+    }
+  }, "Meeting"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      textAlign: "center",
+      padding: "10px 12px",
+      color: COLORS.textMuted,
+      fontWeight: 500
+    }
+  }, "Per Session"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      textAlign: "center",
+      padding: "10px 12px",
+      color: COLORS.textMuted,
+      fontWeight: 500
+    }
+  }, "Occurrences"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      textAlign: "center",
+      padding: "10px 12px",
+      color: COLORS.textMuted,
+      fontWeight: 500
+    }
+  }, "Attendees"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      textAlign: "right",
+      padding: "10px 12px",
+      color: COLORS.textMuted,
+      fontWeight: 500
+    }
+  }, "Est. Weekly"))), /*#__PURE__*/React.createElement("tbody", null, recurringData.map((m, i) => {
+    const isOpen = recurringExpanded.has(i);
+    const attendeeList = [...m.attendees].filter(a => a && a.trim()).sort();
+    return React.createElement(React.Fragment, {key: i},
+      React.createElement("tr", {
+        onClick: () => setRecurringExpanded(prev => { const n = new Set(prev); isOpen ? n.delete(i) : n.add(i); return n; }),
+        style: {borderBottom: `1px solid ${COLORS.bg}`, cursor: "pointer", background: isOpen ? "#1e293b" : "transparent"}
+      },
+        React.createElement("td", {style: {padding: "10px 12px", color: COLORS.text}},
+          React.createElement("span", {style: {fontSize: 10, color: COLORS.textDim, marginRight: 8, display: "inline-block", width: 10}}, isOpen ? "\u25BC" : "\u25B6"),
+          m.name
+        ),
+        React.createElement("td", {style: {textAlign: "center", padding: "10px 12px", color: COLORS.text}}, m.avgHours, "h"),
+        React.createElement("td", {style: {textAlign: "center", padding: "10px 12px", color: COLORS.textMuted}}, m.occurrences, "x"),
+        React.createElement("td", {style: {textAlign: "center", padding: "10px 12px", color: COLORS.textMuted}}, m.attendeeCount),
+        React.createElement("td", {style: {textAlign: "right", padding: "10px 12px", color: COLORS.text, fontWeight: 600}}, m.weeklyEstimate, "h")
+      ),
+      isOpen && React.createElement("tr", {style: {background: COLORS.bg}},
+        React.createElement("td", {colSpan: 5, style: {padding: "8px 40px 14px", borderBottom: `1px solid ${COLORS.border}`}},
+          attendeeList.length > 0
+            ? React.createElement("div", {style: {display: "flex", flexWrap: "wrap", gap: 6}},
+                ...attendeeList.map((a, j) => React.createElement("span", {
+                  key: j,
+                  onClick: (e) => { e.stopPropagation(); setPersonCard({name: a, x: e.clientX, y: e.clientY}); },
+                  style: {fontSize: 11, color: "#93c5fd", background: "#1e3a5f", padding: "3px 10px", borderRadius: 12, border: "1px solid #3b82f630", cursor: "pointer"}
+                }, a))
+              )
+            : React.createElement("span", {style: {fontSize: 11, color: COLORS.textDim}}, "No attendees listed")
+        )
+      )
+    );
+  }), /*#__PURE__*/React.createElement("tr", {
+    style: {
+      borderTop: `2px solid ${COLORS.border}`,
+      fontWeight: 700
+    }
+  }, /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "12px",
+      color: "#f1f5f9"
+    }
+  }, "TOTAL WEEKLY COMMITMENT"), /*#__PURE__*/React.createElement("td", {
+    colSpan: 3
+  }), /*#__PURE__*/React.createElement("td", {
+    style: {
+      textAlign: "right",
+      padding: "12px",
+      color: "#f1f5f9",
+      fontSize: 16
+    }
+  }, "~", recurringData.reduce((s, m) => s + m.weeklyEstimate, 0).toFixed(1), "h")))))), activeTab === "radar" && (() => {
+    const entityLookup = {};
+    sampleEvents.filter(e => e.type === "external" && e.entity).forEach(e => {
+      const key = e.entity.toLowerCase().trim();
+      if (!entityLookup[key]) entityLookup[key] = {
+        name: e.entity,
+        meetings: 0,
+        hours: 0
+      };
+      entityLookup[key].meetings++;
+      entityLookup[key].hours += +((timeToMin(e.endTime) - timeToMin(e.startTime)) / 60).toFixed(1);
+    });
+    const tracked = keyRelationships.map(name => {
+      const key = name.toLowerCase().trim();
+      const found = entityLookup[key];
+      return {
+        name,
+        meetings: found ? found.meetings : 0,
+        hours: found ? +found.hours.toFixed(1) : 0
+      };
+    });
+    const untracked = Object.values(entityLookup).filter(e => !keyRelationships.some(k => k.toLowerCase().trim() === e.name.toLowerCase().trim()));
+    const blindSpots = tracked.filter(e => e.meetings === 0);
+    const active = tracked.filter(e => e.meetings > 0).sort((a, b) => b.hours - a.hours);
+    const allRadar = [...active, ...untracked.sort((a, b) => b.hours - a.hours)];
+    const addRelationship = () => {
+      const val = newRelInput.trim();
+      if (val && !keyRelationships.some(k => k.toLowerCase() === val.toLowerCase())) {
+        setKeyRelationships([...keyRelationships, val]);
+        setNewRelInput("");
+      }
+    };
+    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: sectionStyle
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+      style: {
+        ...headerStyle,
+        margin: 0
+      }
+    }, "Key Relationships"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        ...subStyle,
+        margin: "4px 0 0"
+      }
+    }, "Add the relationships your exec should be maintaining. Any with zero meetings will surface as blind spots."))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        marginBottom: 12
+      }
+    }, keyRelationships.map((rel, i) => {
+      const hasActivity = tracked.find(t => t.name === rel && t.meetings > 0);
+      return /*#__PURE__*/React.createElement("div", {
+        key: i,
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: hasActivity ? "#065f4620" : "#7f1d1d20",
+          border: `1px solid ${hasActivity ? "#065f46" : "#991b1b"}`,
+          padding: "5px 10px",
+          borderRadius: 6,
+          fontSize: 12,
+          color: hasActivity ? "#34d399" : "#fca5a5"
+        }
+      }, /*#__PURE__*/React.createElement("span", null, rel), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 10,
+          color: COLORS.textDim
+        }
+      }, hasActivity ? `${hasActivity.meetings} mtg${hasActivity.meetings !== 1 ? "s" : ""}` : "0 mtgs"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => setKeyRelationships(keyRelationships.filter((_, j) => j !== i)),
+        style: {
+          background: "none",
+          border: "none",
+          color: COLORS.textDim,
+          cursor: "pointer",
+          fontSize: 14,
+          padding: 0,
+          lineHeight: 1
+        }
+      }, "\xD7"));
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: newRelInput,
+      onChange: e => setNewRelInput(e.target.value),
+      onKeyDown: e => e.key === "Enter" && addRelationship(),
+      placeholder: "Add relationship (e.g. Netflix, CAA, Lionsgate)",
+      style: {
+        background: COLORS.bg,
+        color: COLORS.text,
+        border: `1px solid ${COLORS.border}`,
+        padding: "6px 12px",
+        borderRadius: 6,
+        fontSize: 12,
+        flex: 1,
+        maxWidth: 300
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: addRelationship,
+      style: {
+        padding: "6px 14px",
+        borderRadius: 6,
+        fontSize: 12,
+        cursor: "pointer",
+        background: COLORS.external,
+        color: "#fff",
+        border: "none",
+        fontWeight: 600
+      }
+    }, "Add"))), blindSpots.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        ...sectionStyle,
+        borderLeft: "4px solid #991b1b"
+      }
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: {
+        ...headerStyle,
+        color: "#fca5a5"
+      }
+    }, "Blind Spots"), /*#__PURE__*/React.createElement("p", {
+      style: subStyle
+    }, "Key relationships with zero meetings in this period. These may need attention."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 10,
+        flexWrap: "wrap"
+      }
+    }, blindSpots.map((e, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        background: COLORS.bg,
+        border: "1px solid #991b1b",
+        padding: "10px 16px",
+        borderRadius: 8,
+        fontSize: 12,
+        color: "#fca5a5",
+        display: "flex",
+        alignItems: "center",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 16
+      }
+    }, "!"), /*#__PURE__*/React.createElement("span", null, e.name), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: COLORS.textDim
+      }
+    }, "0 meetings"))))), allRadar.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: sectionStyle
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: headerStyle
+    }, "Meeting Activity"), /*#__PURE__*/React.createElement("p", {
+      style: subStyle
+    }, "All external meetings by relationship. Key relationships highlighted."), React.createElement("div", {style:{marginTop:12}}, ...(() => {
+      const maxH = Math.max(...allRadar.map(e => e.hours), 0.5);
+      return allRadar.map((entry, i) => {
+        const isKey = keyRelationships.some(k => k.toLowerCase() === entry.name.toLowerCase());
+        const pct = Math.max(4, Math.round((entry.hours / maxH) * 100));
+        return React.createElement("div", {key:i, style:{display:"flex",alignItems:"center",gap:10,marginBottom:8}},
+          React.createElement("div", {style:{width:170,fontSize:12,color:isKey?COLORS.text:COLORS.textMuted,textAlign:"right",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}, entry.name),
+          React.createElement("div", {style:{flex:1,background:COLORS.bg,borderRadius:4,height:22,overflow:"hidden"}},
+            React.createElement("div", {style:{width:pct+"%",height:"100%",borderRadius:4,background:isKey?COLORS.external:"#475569",transition:"width 0.3s"}})
+          ),
+          React.createElement("div", {style:{fontSize:11,color:COLORS.textMuted,flexShrink:0,minWidth:80}}, entry.hours+"h \u00B7 "+entry.meetings+" mtg"+(entry.meetings!==1?"s":""))
+        );
+      });
+    })()), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 16,
+        marginTop: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 12,
+        height: 12,
+        borderRadius: 3,
+        background: COLORS.external
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: COLORS.textMuted
+      }
+    }, "Key relationship")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 12,
+        height: 12,
+        borderRadius: 3,
+        background: "#475569"
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: COLORS.textMuted
+      }
+    }, "Other")))));
+  })(),
+  activeTab === "financeAvails" && (() => {
+    const fbData = window._calendarData && window._calendarData.financeFreeBusy;
+    if (!fbData) return React.createElement("div", {style:{padding:40,color:COLORS.textMuted,textAlign:"center"}}, "No finance availability data. Ask Claude to refresh.");
+    const DAYS = [{key:"2026-04-13",label:"Mon Apr 13"},{key:"2026-04-14",label:"Tue Apr 14"},{key:"2026-04-15",label:"Wed Apr 15"},{key:"2026-04-16",label:"Thu Apr 16"},{key:"2026-04-17",label:"Fri Apr 17"}];
+    const TIMES = ["9:00am","9:30am","10:00am","10:30am","11:00am","11:30am","12:00pm","12:30pm","1:00pm","1:30pm","2:00pm","2:30pm","3:00pm","3:30pm","4:00pm","4:30pm","5:00pm","5:30pm"];
+    const LUNCH = [8,9,10];
+    const members = fbData.members;
+    const active = members.map((_,i)=>i).filter(i=>!faExcluded.includes(i));
+    const total = active.length;
+    const getCellInfo = (dk,s) => {
+      const day = fbData.days[dk];
+      if (!day) return {free:total,tent:0};
+      let free=0,tent=0;
+      active.forEach(mi=>{const v=day[mi][s]; if(v===0)free++; else if(v===2)tent++;});
+      return {free,tent};
+    };
+    const cellBg = (free,isL) => {
+      if (isL) return "#0d1117";
+      const p = total ? free/total : 0;
+      if (p>=1) return "#14532d"; if (p>=.75) return "#166534";
+      if (p>=.5) return "#854d0e"; if (p>=.25) return "#9a3412";
+      return "#7f1d1d";
+    };
+    const cellTxt = (free,tent,isL) => {
+      if (isL||!total) return "\u2014";
+      if (free===total) return "All";
+      return free+"/"+total+(tent?" ("+tent+"?)":"");
+    };
+    return React.createElement("div", null,
+      React.createElement("div", {style:sectionStyle},
+        React.createElement("h3", {style:{...headerStyle,marginBottom:4}}, "Finance Team Availability"),
+        React.createElement("p", {style:{...subStyle,marginBottom:14}}, "Week of Apr 13  \u00B7  "+total+"/"+members.length+" active  \u00B7  click chip to exclude"),
+        React.createElement("div", {style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}},
+          ...members.map((m,i) => {
+            const ex = faExcluded.includes(i);
+            return React.createElement("button",{key:i,onClick:()=>setFaExcluded(p=>ex?p.filter(x=>x!==i):[...p,i]),style:{padding:"4px 10px",borderRadius:20,fontSize:11,cursor:"pointer",background:ex?COLORS.bg:"#1e3a5f",color:ex?COLORS.textDim:"#93c5fd",border:"1px solid "+(ex?COLORS.border:"#3b82f6"),textDecoration:ex?"line-through":"none",fontWeight:ex?400:600}}, m.initials);
+          })
+        ),
+        React.createElement("div", {style:{overflowX:"auto"}},
+          React.createElement("table", {style:{borderCollapse:"separate",borderSpacing:"2px",width:"100%",minWidth:480}},
+            React.createElement("thead", null,
+              React.createElement("tr", null,
+                React.createElement("th", {style:{width:54,fontSize:10,color:COLORS.textDim,textAlign:"left",padding:"2px 4px",fontWeight:400}}, ""),
+                ...DAYS.map(d => React.createElement("th", {key:d.key,style:{fontSize:11,color:COLORS.textMuted,padding:"4px 6px",textAlign:"center",fontWeight:700,minWidth:76}}, d.label))
+              )
+            ),
+            React.createElement("tbody", null,
+              ...TIMES.map((time,slot) => {
+                const isL = LUNCH.includes(slot);
+                return React.createElement("tr", {key:slot},
+                  React.createElement("td", {style:{fontSize:10,color:isL?COLORS.textDim:COLORS.textMuted,padding:"2px 4px",whiteSpace:"nowrap"}}, time),
+                  ...DAYS.map(d => {
+                    const {free,tent} = getCellInfo(d.key,slot);
+                    const bg = cellBg(free,isL);
+                    const txt = cellTxt(free,tent,isL);
+                    const pct = total?free/total:0;
+                    return React.createElement("td", {key:d.key,title:isL?"Lunch":free+" free of "+total,style:{background:bg,padding:"3px 4px",textAlign:"center",fontSize:10,color:isL?"#374151":pct>=.5?"#bbf7d0":"#fde68a",borderRadius:3}}, txt);
+                  })
+                );
+              })
+            )
+          )
+        ),
+        React.createElement("div", {style:{display:"flex",gap:14,marginTop:12,flexWrap:"wrap"}},
+          ...[ ["#14532d","All free"],["#166534","75%+ free"],["#854d0e","50%+ free"],["#9a3412","25%+ free"],["#7f1d1d","<25% free"] ].map(([c,l]) =>
+            React.createElement("div", {key:l,style:{display:"flex",alignItems:"center",gap:5}},
+              React.createElement("div", {style:{width:10,height:10,borderRadius:2,background:c}}),
+              React.createElement("span", {style:{fontSize:10,color:COLORS.textMuted}}, l)
+            )
+          )
+        )
+      )
+    );
+  })(),
+  activeTab === "relRadar" && (() => {
+    const entityMap = (window._calendarData && window._calendarData.entityMap) || {};
+    const today = "2026-04-10";
+    const ups = {};
+    sampleEvents.filter(e=>e.type==="external"&&e.entity&&e.date>=today).forEach(e=>{if(!ups[e.entity])ups[e.entity]=[];ups[e.entity].push(e);});
+    const TC = {Technology:"#3b82f6",Finance:"#f59e0b",Entertainment:"#8b5cf6"};
+    const fmtD = s=>{const[,m,d]=s.split("-");return["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]+" "+parseInt(d);};
+    const entries = Object.entries(entityMap);
+    return React.createElement("div", null,
+      React.createElement("div", {style:sectionStyle},
+        React.createElement("h3", {style:{...headerStyle,marginBottom:4}}, "Relationship Radar"),
+        React.createElement("p", {style:subStyle}, "Tracked external contacts \u2014 meeting history and upcoming.")
+      ),
+      React.createElement("div", {style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:16,marginTop:16}},
+        ...entries.map(([name,info]) => {
+          const tc = TC[info.type]||"#64748b";
+          const upcoming = ups[name]||[];
+          return React.createElement("div", {key:name,style:{background:COLORS.card,borderRadius:10,padding:18,border:"1px solid "+COLORS.border,borderTop:"3px solid "+tc}},
+            React.createElement("div", {style:{marginBottom:8}},
+              React.createElement("div", {style:{fontSize:13,fontWeight:700,color:"#f1f5f9",marginBottom:4}}, name),
+              React.createElement("span", {style:{fontSize:10,fontWeight:600,color:tc,background:tc+"20",padding:"2px 8px",borderRadius:10}}, info.type)
+            ),
+            info.contacts&&info.contacts.length>0&&React.createElement("p",{style:{fontSize:11,color:COLORS.textMuted,marginBottom:6}},
+              React.createElement("span",{style:{color:COLORS.textDim}},"Contacts: "),info.contacts.join(", ")
+            ),
+            info.description&&React.createElement("p",{style:{fontSize:11,color:COLORS.textMuted,marginBottom:8,lineHeight:1.5}},info.description),
+            info.lastMet&&React.createElement("p",{style:{fontSize:11,color:COLORS.textDim,marginBottom:6}},"Last met: ",React.createElement("span",{style:{color:COLORS.textMuted}},fmtD(info.lastMet))),
+            React.createElement("div",{style:{background:COLORS.bg,borderRadius:7,padding:"7px 10px",marginTop:6}},
+              upcoming.length>0
+                ?React.createElement("div",null,
+                    React.createElement("p",{style:{fontSize:11,fontWeight:600,color:"#34d399",margin:"0 0 4px"}},upcoming.length===1?"1 upcoming":upcoming.length+" upcoming"),
+                    ...upcoming.map(e=>React.createElement("div",{key:e.id,style:{fontSize:11,color:COLORS.textMuted,marginBottom:2}},fmtD(e.date)+" \u00B7 "+e.startTime+" \u2014 "+e.title))
+                  )
+                :React.createElement("span",{style:{fontSize:11,color:COLORS.textDim}},"No upcoming meetings")
+            )
+          );
+        })
+      )
+    );
+  })()
+), personCard && React.createElement(React.Fragment, null,
+  React.createElement("div", {style:{position:"fixed",inset:0,zIndex:9998}, onClick:()=>setPersonCard(null)}),
+  React.createElement("div", {
+    style:{position:"fixed",top:Math.min(personCard.y+12,window.innerHeight-90),left:Math.min(personCard.x-8,window.innerWidth-240),background:"#0f172a",border:"1px solid #334155",borderRadius:8,padding:"12px 16px",zIndex:9999,boxShadow:"0 8px 30px rgba(0,0,0,0.7)",minWidth:200,pointerEvents:"auto"},
+    onClick:e=>e.stopPropagation()
+  },
+    React.createElement("div",{style:{fontWeight:600,color:"#f1f5f9",fontSize:13,marginBottom:4}},personCard.name),
+    React.createElement("div",{style:{color:"#93c5fd",fontSize:11,lineHeight:1.5}},personDir[personCard.name]||"Title not on file")
+  )
+));
+}
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(CalendarCommandCenter));
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+ea:
+  name: Caroline Goldberg
+  email: cgoldberg@mrcentertainment.com
+
+artifact_id: coc-schedule
+
+calendars:
+  - id: coc
+    label: Chris O'Connell
+    accountId: COC
+    color: "#002D74"
+    default_visible: true
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords:
+      - birthday
+      - dinner
+      - trainer
+      - personal
+
+features:
+  schedule: true
+  radar: false
+  prep: true
+
+settings:
+  days_ahead: 14

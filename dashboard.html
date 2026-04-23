@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRC · Scheduling Dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --navy:       #002D74;
+  --navy-mid:   #22438a;
+  --navy-light: #e8eef7;
+  --surface:    #f8f9ff;
+  --white:      #ffffff;
+  --ink:        #0b1c30;
+  --muted:      #444651;
+  --faint:      #747782;
+  --border:     #c4c6d2;
+  --border-lt:  #dce9ff;
+  --zoom-bg:    #e8f0fe; --zoom-fg:    #1a73e8;
+  --ip-bg:      #e8f5e9; --ip-fg:      #2e7d32;
+  --pers-bg:    #f3e8fd; --pers-fg:    #7b1fa2;
+  --warn:       #ba1a1a;
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--surface); color: var(--ink); font-family: var(--font-sans); font-size: 13px; line-height: 1.4; }
+
+/* ── Header ── */
+.hdr {
+  background: var(--navy);
+  color: white;
+  padding: 14px 20px 0;
+  position: sticky; top: 0; z-index: 20;
+}
+.hdr-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.hdr h1 { font-family: var(--font-serif); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.hdr-sub { font-size: 10px; opacity: 0.55; text-transform: uppercase; letter-spacing: 0.1em; }
+.hdr-date { margin-left: auto; font-size: 10px; opacity: 0.6; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 0; }
+.tab-btn {
+  padding: 8px 16px;
+  font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.45);
+  background: none; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: rgba(255,255,255,0.75); }
+.tab-btn.active { color: white; border-bottom-color: white; }
+
+/* ── Loading / Error ── */
+.loading { display:flex; align-items:center; justify-content:center; height:200px; color:var(--faint); gap:8px; }
+.spinner { width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.err { padding:30px;color:var(--warn);text-align:center;font-size:12px; }
+
+/* ── Tab panels ── */
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* ════════════════════════════════════════════
+   SCHEDULE TAB
+════════════════════════════════════════════ */
+.sched-wrap { padding: 14px 18px 40px; }
+.day-block { margin-bottom: 22px; }
+.day-hdr {
+  display:flex; align-items:center; gap:8px;
+  padding-bottom:7px; border-bottom:1.5px solid var(--border); margin-bottom:9px;
+}
+.day-hdr.today { border-bottom-color: var(--navy); }
+.day-name { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--faint);min-width:28px; }
+.day-hdr.today .day-name { color:var(--navy); }
+.day-num { font-family:var(--font-serif);font-size:20px;font-weight:600;color:var(--ink);line-height:1; }
+.day-hdr.today .day-num { color:var(--navy); }
+.today-chip { font-size:9px;font-weight:700;background:var(--navy);color:white;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:0.06em; }
+.sec-label { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--faint);margin:0 0 6px; }
+.win-row { display:flex;align-items:center;gap:8px;padding:5px 8px;background:#eef2fc;border:1px dashed #b0c4f0;border-radius:4px;margin-bottom:5px;font-size:11px;color:var(--navy-mid); }
+.win-row .dur { margin-left:auto;opacity:0.5;font-size:10px; }
+.evt {
+  display:flex;gap:9px;padding:7px 9px;background:var(--white);
+  border:1px solid var(--border-lt);border-left:3px solid var(--border);
+  border-radius:0 4px 4px 0;margin-bottom:5px;cursor:pointer;
+  transition:background 0.1s;
+}
+.evt:hover { background: var(--navy-light); }
+.evt.zoom     { border-left-color:var(--zoom-fg); }
+.evt.inperson { border-left-color:var(--ip-fg); }
+.evt.personal { border-left-color:var(--pers-fg); }
+.evt.allday   { border-left-color:var(--border);background:var(--surface); }
+.evt.selected-evt { background:var(--navy-light);border-left-color:var(--navy); }
+.evt-time { min-width:68px;font-size:11px;color:var(--faint);padding-top:1px;font-variant-numeric:tabular-nums;flex-shrink:0; }
+.evt-time.allday { font-style:italic;color:var(--border); }
+.evt-body { flex:1;min-width:0; }
+.evt-title { font-size:12px;font-weight:500;color:var(--ink);line-height:1.35; }
+.badge { display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;text-transform:uppercase;letter-spacing:0.05em;margin-top:3px; }
+.badge.zoom     { background:var(--zoom-bg);color:var(--zoom-fg); }
+.badge.inperson { background:var(--ip-bg);  color:var(--ip-fg); }
+.badge.personal { background:var(--pers-bg);color:var(--pers-fg); }
+.evt-loc { font-size:10px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.evt-loc a { color:var(--zoom-fg);text-decoration:none; }
+.conflict-flag { font-size:9px;color:var(--warn);font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em; }
+.no-mtgs { font-size:11px;color:var(--border);font-style:italic;padding:4px 0; }
+
+/* ════════════════════════════════════════════
+   RADAR TAB
+════════════════════════════════════════════ */
+.radar-wrap {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  height: calc(100vh - 86px);
+}
+.radar-canvas-wrap {
+  position: relative;
+  background: var(--white);
+  border-right: 1px solid var(--border-lt);
+  overflow: hidden;
+}
+#radar-canvas { display:block;width:100%;height:100%; }
+.radar-hint { position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:10px;color:var(--border);pointer-events:none; }
+.radar-panel {
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--surface);
+}
+.radar-empty { display:flex;align-items:center;justify-content:center;height:160px;text-align:center;color:var(--faint);font-size:12px;line-height:1.6; }
+.contact-card h3 { font-family:var(--font-serif);font-size:15px;font-weight:600;margin-bottom:4px; }
+.contact-meta { font-size:11px;color:var(--faint);margin-bottom:12px; }
+.contact-stat { display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-lt); }
+.contact-stat:last-child { border-bottom:none; }
+.stat-label { font-size:11px;color:var(--muted); }
+.stat-val { font-size:13px;font-weight:600;color:var(--ink); }
+.mtg-list { margin-top:12px; }
+.mtg-item { padding:6px 0;border-bottom:1px solid var(--border-lt);font-size:11px; }
+.mtg-item:last-child { border-bottom:none; }
+.mtg-date { color:var(--faint);font-size:10px;margin-bottom:1px; }
+.radar-loading { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--white);flex-direction:column;gap:8px;font-size:12px;color:var(--faint); }
+
+/* ════════════════════════════════════════════
+   PREP TAB
+════════════════════════════════════════════ */
+.prep-wrap { padding: 16px 18px 40px; }
+.prep-empty { display:flex;align-items:center;justify-content:center;height:160px;color:var(--faint);font-size:12px;text-align:center;line-height:1.6; }
+.prep-card { background:var(--white);border:1px solid var(--border-lt);border-radius:4px;padding:14px;margin-bottom:12px; }
+.prep-card h3 { font-family:var(--font-serif);font-size:15px;margin-bottom:6px; }
+.prep-row { display:flex;gap:8px;align-items:flex-start;margin-bottom:5px;font-size:12px; }
+.prep-label { color:var(--faint);min-width:60px;flex-shrink:0;font-size:11px;padding-top:1px; }
+.prep-action {
+  margin-top:10px;padding:6px 12px;background:var(--navy);color:white;border:none;
+  border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;
+  text-transform:uppercase;letter-spacing:0.06em;
+}
+.prep-action:hover { background:var(--navy-mid); }
+.prep-upcoming { margin-bottom:16px; }
+.prep-upcoming h4 { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--faint);margin-bottom:8px; }
+.prep-evt-btn {
+  display:block;width:100%;text-align:left;padding:8px 10px;
+  background:var(--white);border:1px solid var(--border-lt);border-radius:4px;
+  margin-bottom:5px;cursor:pointer;font-family:var(--font-sans);
+  transition:background 0.1s;
+}
+.prep-evt-btn:hover { background:var(--navy-light); }
+.prep-evt-btn.active { background:var(--navy-light);border-color:var(--navy); }
+.prep-evt-title { font-size:12px;font-weight:500;color:var(--ink); }
+.prep-evt-time  { font-size:10px;color:var(--faint);margin-top:1px; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <h1 id="hdr-name">MRC · Schedule</h1>
+    <span class="hdr-sub">Executive Intelligence</span>
+    <span class="hdr-date" id="hdr-date"></span>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="schedule">Schedule</button>
+    <button class="tab-btn" data-tab="radar">Relationship Radar</button>
+    <button class="tab-btn" data-tab="prep">Meeting Prep</button>
+  </div>
+</div>
+
+<!-- Schedule -->
+<div class="panel active" id="tab-schedule">
+  <div id="sched-app"><div class="loading"><div class="spinner"></div> Pulling calendar…</div></div>
+</div>
+
+<!-- Radar -->
+<div class="panel" id="tab-radar">
+  <div class="radar-wrap">
+    <div class="radar-canvas-wrap">
+      <canvas id="radar-canvas"></canvas>
+      <div id="radar-loading" class="radar-loading"><div class="spinner"></div> Building relationship map…</div>
+      <div class="radar-hint">Click a contact · Drag to rearrange</div>
+    </div>
+    <div class="radar-panel" id="radar-panel">
+      <div class="radar-empty">Click a contact<br>to view meeting history</div>
+    </div>
+  </div>
+</div>
+
+<!-- Prep -->
+<div class="panel" id="tab-prep">
+  <div class="prep-wrap" id="prep-app">
+    <div class="loading"><div class="spinner"></div> Loading meetings…</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════
+const CFG = {
+  execName:        'Asif Satchu',
+  execAccountId:   'Asif',
+  daysAhead:       14,
+  winStart:        11 * 60,   // 11am — Asif's scheduling floor
+  winEnd:          18 * 60,
+  personalKW: ['zain','zahra','alex - pt','birthday','soccer','basketball',
+               'mirman','echo horizon','escapology','topgolf','katsuya',
+               'dinner','tower rd','copa de oro','trainer'],
+};
+const OUTLOOK = 'mcp__4232ebbc-c694-4895-9b33-f52a55fd5c09__list-events';
+
+// ══════════════════════════════════════════════════════
+// SHARED UTILS
+// ══════════════════════════════════════════════════════
+const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS     = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MON_IDX  = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+const DAY_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const pad2     = n => String(n).padStart(2,'0');
+const toDS     = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const now      = new Date();
+const todayStr = toDS(now);
+
+document.getElementById('hdr-name').textContent = CFG.execName;
+document.getElementById('hdr-date').textContent =
+  `${DAY_FULL[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+
+// ── Parser ────────────────────────────────────────────
+function parseEvents(text) {
+  const events = [], yr = now.getFullYear();
+  const blocks = text.split(/\n(?=\d+\.\s)/);
+  for (const blk of blocks) {
+    const lines = blk.split('\n').map(l=>l.trim()).filter(Boolean);
+    if (lines.length < 2) continue;
+    const tm = lines[0].match(/^\d+\.\s+(.+)$/); if (!tm) continue;
+    const title = tm[1], dtL = lines[1];
+    let ds=null,st=null,et=null,allDay=false;
+    const timedRe = /(\w{3}),\s+(\w{3})\s+(\d+)\s+·\s+(\d+):(\d+)\s+(AM|PM)(?:\s+\([^)]*\))?\s+[–\-]\s+(\d+):(\d+)\s+(AM|PM)/;
+    const adRe    = /(\w{3}),\s+(\w{3})\s+(\d+)(?:\s+[–\-]\s+\w+,\s+\w+\s+\d+)?\s+\(All day\)/;
+    const t2 = dtL.match(timedRe), ad = dtL.match(adRe);
+    if (t2) {
+      const [,, mon,day,sh,sm,sa,eh,em,ea] = t2;
+      const d = new Date(yr,MON_IDX[mon],parseInt(day)); ds = toDS(d);
+      let h=parseInt(sh); if(sa==='PM'&&h!==12)h+=12; if(sa==='AM'&&h===12)h=0; st=`${pad2(h)}:${sm}`;
+      let eh2=parseInt(eh); if(ea==='PM'&&eh2!==12)eh2+=12; if(ea==='AM'&&eh2===12)eh2=0; et=`${pad2(eh2)}:${em}`;
+    } else if (ad) {
+      const [,,mon,day]=ad; ds=toDS(new Date(yr,MON_IDX[mon],parseInt(day))); allDay=true;
+    } else continue;
+    let loc=null,zoom=null;
+    for (const ln of lines.slice(2)) {
+      if (ln.startsWith('Location:')) {
+        loc=ln.slice(9).trim();
+        const z=loc.match(/https?:\/\/[^\s]*zoom[^\s]*/i); if(z) zoom=z[0];
+      }
+    }
+    const tl=title.toLowerCase(),ll=(loc||'').toLowerCase();
+    let type='business';
+    if (CFG.personalKW.some(w=>tl.includes(w))) type='personal';
+    else if (zoom||ll.includes('zoom.us')) type='zoom';
+    else if (loc&&(loc.match(/\d{3,}/)||ll.includes('office')||ll.includes(' rd')||ll.includes('blvd')||ll.includes('ave,')||ll.includes('suite'))) type='inperson';
+    events.push({title,dateStr:ds,startTime:st,endTime:et,isAllDay:allDay,location:loc,zoomUrl:zoom,type});
+  }
+  return events;
+}
+
+function fmtT(t){if(!t)return'';const[h,m]=t.split(':').map(Number);const ap=h>=12?'pm':'am',h12=h%12||12;return m===0?`${h12}${ap}`:`${h12}:${pad2(m)}${ap}`;}
+function toM(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function mts(m){const h=Math.floor(m/60),mn=m%60,ap=h>=12?'pm':'am',h12=h%12||12;return mn===0?`${h12}${ap}`:`${h12}:${pad2(mn)}${ap}`;}
+function dur(m){const h=Math.floor(m/60),mn=m%60;return h>0&&mn>0?`${h}h ${mn}m`:h>0?`${h}h`:`${mn}m`;}
+function openWins(evs){
+  const busy=evs.filter(e=>!e.isAllDay&&e.startTime&&e.type!=='personal').map(e=>({s:toM(e.startTime),e:toM(e.endTime||e.startTime)})).sort((a,b)=>a.s-b.s);
+  const wins=[];let cur=CFG.winStart;
+  for(const b of busy){if(b.s>cur+29)wins.push({s:cur,e:b.s});cur=Math.max(cur,b.e);}
+  if(cur<CFG.winEnd-29)wins.push({s:cur,e:CFG.winEnd});
+  return wins;
+}
+function hasConflict(ev,all){
+  if(ev.isAllDay||!ev.startTime)return false;
+  const s=toM(ev.startTime),e=toM(ev.endTime||ev.startTime);
+  return all.some(o=>o!==ev&&!o.isAllDay&&o.startTime&&toM(o.startTime)<e&&toM(o.endTime||o.startTime)>s);
+}
+
+// Shared calendar data (loaded once, used by all tabs)
+let allEvents = [];
+let calLoaded = false;
+let calLoadCallbacks = [];
+
+async function loadCalendar() {
+  if (calLoaded) return allEvents;
+  return new Promise(async (resolve) => {
+    calLoadCallbacks.push(resolve);
+    if (calLoadCallbacks.length > 1) return; // already loading
+    try {
+      const s = new Date(now); s.setHours(0,0,0,0);
+      const e = new Date(s); e.setDate(s.getDate()+CFG.daysAhead);
+      const res = await window.cowork.callMcpTool(OUTLOOK,{
+        accountId: CFG.execAccountId,
+        startDate: `${toDS(s)}T00:00:00`,
+        endDate:   `${toDS(e)}T23:59:59`,
+        count: 50
+      });
+      allEvents = res.isError ? [] : parseEvents(res.content[0].text);
+    } catch(err) { allEvents = []; }
+    calLoaded = true;
+    calLoadCallbacks.forEach(cb => cb(allEvents));
+    calLoadCallbacks = [];
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════
+const tabBtns   = document.querySelectorAll('.tab-btn');
+const tabPanels = document.querySelectorAll('.panel');
+let activeTab   = 'schedule';
+let radarInited = false, prepInited = false;
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.tab;
+    if (t === activeTab) return;
+    activeTab = t;
+    tabBtns.forEach(b  => b.classList.toggle('active', b.dataset.tab === t));
+    tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${t}`));
+    if (t === 'radar' && !radarInited) { radarInited = true; initRadar(); }
+    if (t === 'prep'  && !prepInited)  { prepInited  = true; initPrep(); }
+  });
+});
+
+// ══════════════════════════════════════════════════════
+// SCHEDULE TAB
+// ══════════════════════════════════════════════════════
+(async () => {
+  const app = document.getElementById('sched-app');
+  let evts;
+  try { evts = await loadCalendar(); }
+  catch(e) { app.innerHTML=`<div class="err">Could not load calendar.<br><small>${e.message}</small></div>`; return; }
+
+  if (!evts.length) { app.innerHTML=`<div class="err">No events found.</div>`; return; }
+
+  const byDate = {};
+  for (const ev of evts) { if(!byDate[ev.dateStr]) byDate[ev.dateStr]=[]; byDate[ev.dateStr].push(ev); }
+
+  let html = '<div class="sched-wrap">';
+  for (const ds of Object.keys(byDate).sort()) {
+    const evs = byDate[ds], d = new Date(ds+'T12:00:00'), isToday = ds===todayStr;
+    evs.sort((a,b)=>{ if(a.isAllDay&&!b.isAllDay)return -1;if(!a.isAllDay&&b.isAllDay)return 1;return(a.startTime||'').localeCompare(b.startTime||''); });
+    const timed = evs.filter(e=>!e.isAllDay);
+    html += `<div class="day-block"><div class="day-hdr ${isToday?'today':''}"><span class="day-name">${DAYS[d.getDay()]}</span><span class="day-num">${MONTHS[d.getMonth()]} ${d.getDate()}</span>${isToday?'<span class="today-chip">Today</span>':''}</div>`;
+    if (isToday) {
+      const wins=openWins(evs);
+      if(wins.length){ html+=`<div class="sec-label">Open windows</div>`;wins.slice(0,3).forEach(w=>{ html+=`<div class="win-row">${mts(w.s)} – ${mts(w.e)}<span class="dur">${dur(w.e-w.s)}</span></div>`; }); }
+      if(timed.filter(e=>e.type!=='personal').length) html+=`<div class="sec-label" style="margin-top:10px">Meetings</div>`;
+    }
+    if (!evs.length) html+=`<div class="no-mtgs">No meetings</div>`;
+    for (const ev of evs) {
+      const ts=ev.isAllDay?'All day':`${fmtT(ev.startTime)}${ev.endTime?' – '+fmtT(ev.endTime):''}`;
+      const badge=ev.type==='zoom'?'<span class="badge zoom">Zoom</span>':ev.type==='inperson'?'<span class="badge inperson">In Person</span>':ev.type==='personal'?'<span class="badge personal">Personal</span>':'';
+      const loc=ev.zoomUrl?`<div class="evt-loc"><a href="${ev.zoomUrl}" target="_blank">Join Zoom ↗</a></div>`:(ev.location&&!ev.isAllDay?`<div class="evt-loc">${ev.location.length>52?ev.location.slice(0,52)+'…':ev.location}</div>`:'');
+      const cf=(!ev.isAllDay&&hasConflict(ev,timed))?`<div class="conflict-flag">⚠ Overlap</div>`:'';
+      const eid=encodeURIComponent(JSON.stringify({title:ev.title,dateStr:ev.dateStr,startTime:ev.startTime,endTime:ev.endTime,location:ev.location,zoomUrl:ev.zoomUrl,type:ev.type}));
+      html+=`<div class="evt ${ev.isAllDay?'allday':ev.type}" data-evt="${eid}" onclick="selectEvt(this)">
+        <div class="evt-time ${ev.isAllDay?'allday':''}">${ts}</div>
+        <div class="evt-body"><div class="evt-title">${ev.title}</div>${badge}${cf}${loc}</div>
+      </div>`;
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  app.innerHTML=html;
+})();
+
+function selectEvt(el) {
+  document.querySelectorAll('.evt.selected-evt').forEach(e=>e.classList.remove('selected-evt'));
+  el.classList.add('selected-evt');
+  try {
+    const ev = JSON.parse(decodeURIComponent(el.dataset.evt));
+    showPrepForEvent(ev);
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════
+// RELATIONSHIP RADAR TAB
+// ══════════════════════════════════════════════════════
+
+// ── Vanilla force simulation ──────────────────────────
+class ForceGraph {
+  constructor(canvas, nodes, edges, onSelect) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.nodes  = nodes.map(n => ({
+      ...n,
+      x: canvas.width/2  + (Math.random()-0.5)*220,
+      y: canvas.height/2 + (Math.random()-0.5)*220,
+      vx:0, vy:0
+    }));
+    this.edges    = edges;
+    this.onSelect = onSelect;
+    this.selected = null;
+    this.dragging = null;
+    this.dpr      = window.devicePixelRatio || 1;
+    this._resize();
+    window.addEventListener('resize', () => this._resize());
+    canvas.addEventListener('click',      e => this._onClick(e));
+    canvas.addEventListener('mousedown',  e => this._onDown(e));
+    canvas.addEventListener('mousemove',  e => this._onMove(e));
+    canvas.addEventListener('mouseup',    ()=> this.dragging=null);
+    canvas.addEventListener('mouseleave', ()=> this.dragging=null);
+    this._run();
+  }
+
+  _resize() {
+    const wrap = this.canvas.parentElement;
+    this.canvas.width  = wrap.clientWidth  * this.dpr;
+    this.canvas.height = wrap.clientHeight * this.dpr;
+    this.canvas.style.width  = wrap.clientWidth  + 'px';
+    this.canvas.style.height = wrap.clientHeight + 'px';
+    this.ctx.scale(this.dpr, this.dpr);
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    const ctr = this.nodes.find(n=>n.id==='center');
+    if (ctr) { ctr.x=W/2; ctr.y=H/2; }
+  }
+
+  _getXY(e) {
+    const r = this.canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  _nodeAt(x,y) {
+    return this.nodes.find(n=>Math.hypot(n.x-x,n.y-y)<=n.r);
+  }
+  _onClick(e) {
+    const {x,y}=this._getXY(e), n=this._nodeAt(x,y);
+    this.selected=n?n.id:null;
+    if (this.onSelect) this.onSelect(n||null);
+  }
+  _onDown(e) { const {x,y}=this._getXY(e); this.dragging=this._nodeAt(x,y)||null; }
+  _onMove(e) {
+    if (!this.dragging) return;
+    const {x,y}=this._getXY(e);
+    this.dragging.x=x; this.dragging.y=y; this.dragging.vx=0; this.dragging.vy=0;
+  }
+
+  _simulate() {
+    const W=this.canvas.width/this.dpr, H=this.canvas.height/this.dpr;
+    for (const n of this.nodes) { n.fx=0; n.fy=0; }
+    // Repulsion
+    for (let i=0;i<this.nodes.length;i++) for (let j=i+1;j<this.nodes.length;j++) {
+      const a=this.nodes[i],b=this.nodes[j];
+      const dx=b.x-a.x, dy=b.y-a.y, d=Math.max(Math.hypot(dx,dy),1);
+      const f=7000/(d*d), fx=f*dx/d, fy=f*dy/d;
+      a.fx-=fx; a.fy-=fy; b.fx+=fx; b.fy+=fy;
+    }
+    // Attraction (edges)
+    const nodeById = Object.fromEntries(this.nodes.map(n=>[n.id,n]));
+    for (const e of this.edges) {
+      const a=nodeById[e.source], b=nodeById[e.target]; if(!a||!b) continue;
+      const dx=b.x-a.x, dy=b.y-a.y, d=Math.max(Math.hypot(dx,dy),1), rest=160;
+      const f=0.04*(d-rest), fx=f*dx/d, fy=f*dy/d;
+      a.fx+=fx; a.fy+=fy; b.fx-=fx; b.fy-=fy;
+    }
+    // Center pull
+    for (const n of this.nodes) { if(n.id==='center')continue; n.fx+=(W/2-n.x)*0.015; n.fy+=(H/2-n.y)*0.015; }
+    const ctr=nodeById['center']; if(ctr){ctr.x=W/2;ctr.y=H/2;ctr.vx=0;ctr.vy=0;}
+    // Integrate
+    for (const n of this.nodes) {
+      if(n===this.dragging)continue;
+      n.vx=(n.vx+n.fx)*0.88; n.vy=(n.vy+n.fy)*0.88;
+      n.x=Math.max(n.r+8,Math.min(W-n.r-8,n.x+n.vx));
+      n.y=Math.max(n.r+8,Math.min(H-n.r-8,n.y+n.vy));
+    }
+  }
+
+  _draw() {
+    const ctx=this.ctx, W=this.canvas.width/this.dpr, H=this.canvas.height/this.dpr;
+    ctx.clearRect(0,0,W,H);
+    const nodeById=Object.fromEntries(this.nodes.map(n=>[n.id,n]));
+    // Edges
+    for (const e of this.edges) {
+      const a=nodeById[e.source], b=nodeById[e.target]; if(!a||!b) continue;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle=`rgba(0,45,116,${Math.min(0.08+e.weight*0.04,0.4)})`;
+      ctx.lineWidth=Math.min(e.weight*0.6+0.5,4); ctx.stroke();
+    }
+    // Nodes
+    for (const n of this.nodes) {
+      const sel=this.selected===n.id;
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.fillStyle=sel?'#001a49':n.color; ctx.fill();
+      if(sel){ctx.strokeStyle='#001a49';ctx.lineWidth=3;ctx.stroke();}
+      ctx.fillStyle='white';
+      ctx.font=`${n.id==='center'?'bold ':''}${Math.max(9,Math.round(n.r*0.48))}px -apple-system,sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      const lbl=(n.label||n.id).split(' ')[0];
+      ctx.fillText(lbl,n.x,n.y);
+      if(n.id!=='center'&&n.r>22){
+        const last=n.label.split(' ').slice(1).join(' ');
+        if(last){ctx.font=`${Math.max(8,Math.round(n.r*0.38))}px -apple-system,sans-serif`;ctx.fillText(last,n.x,n.y+Math.round(n.r*0.48));}
+      }
+    }
+  }
+
+  _run() {
+    this._simulate();
+    this._draw();
+    requestAnimationFrame(()=>this._run());
+  }
+}
+
+async function initRadar() {
+  const loading = document.getElementById('radar-loading');
+  const panel   = document.getElementById('radar-panel');
+  const canvas  = document.getElementById('radar-canvas');
+
+  let evts;
+  try { evts = await loadCalendar(); } catch(e) { loading.innerHTML=`<div class="err">Could not load calendar.</div>`; return; }
+
+  if (!evts.length) { loading.innerHTML=`<div style="color:var(--faint);font-size:12px">No calendar data</div>`; return; }
+
+  // Extract contacts from meeting titles using sample()
+  const bizEvts = evts.filter(e=>!e.isAllDay&&e.type!=='personal');
+  let contacts = [];
+  try {
+    const parsed = await window.cowork.sample(
+      `From these calendar event titles, extract real people's names (not the exec). For each person return {"name":"Full Name","meetings":N,"type":"internal" or "external"}. Internal = MRC staff. External = outside companies. Count how many events each name appears in. Return ONLY a valid JSON array. Max 10 people.`,
+      bizEvts.map(e=>e.title)
+    );
+    const raw = parsed.text.match(/\[[\s\S]*?\]/);
+    if (raw) contacts = JSON.parse(raw[0]);
+  } catch(e) {}
+
+  // Fallback: extract names from " / " and "&" patterns in titles
+  if (!contacts.length) {
+    const nameCounts = {};
+    for (const ev of bizEvts) {
+      const parts = ev.title.replace(/\bAsif\b/gi,'').split(/[\/,&+–\-]|Zoom\s*\||\bwith\b|\band\b/i);
+      for (const p of parts) {
+        const clean = p.replace(/\b(Weekly|Zoom|Mtg|Meeting|Call|Check.In|Biweekly|Monthly)\b/gi,'').trim();
+        if (clean.length>3 && clean.length<30 && /^[A-Z]/.test(clean) && !/\d/.test(clean)) {
+          nameCounts[clean] = (nameCounts[clean]||0)+1;
+        }
+      }
+    }
+    contacts = Object.entries(nameCounts).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1]).slice(0,8)
+      .map(([name,meetings])=>({name,meetings,type:'internal'}));
+  }
+
+  // Build graph
+  const colors = ['#22438a','#5e5e5e','#1a73e8','#2e7d32','#7b1fa2','#c2410c','#0891b2','#d97706'];
+  const nodes = [
+    { id:'center', label:CFG.execName.split(' ')[0], r:32, color:'#002D74' },
+    ...contacts.slice(0,8).map((c,i)=>({
+      id:c.name, label:c.name, r:16+Math.min(c.meetings*3,24),
+      color:colors[i%colors.length], meetings:c.meetings, type:c.type,
+      evts: bizEvts.filter(e=>e.title.toLowerCase().includes(c.name.split(' ')[0].toLowerCase()))
+    }))
+  ];
+  const edges = contacts.slice(0,8).map(c=>({ source:'center', target:c.name, weight:c.meetings }));
+
+  loading.style.display='none';
+
+  new ForceGraph(canvas, nodes, edges, (node) => {
+    if (!node || node.id==='center') {
+      panel.innerHTML=`<div class="radar-empty">Click a contact<br>to view meeting history</div>`;
+      return;
+    }
+    const evtList = (node.evts||[]).slice(0,6).map(e=>{
+      const d=new Date(e.dateStr+'T12:00:00');
+      return `<div class="mtg-item"><div class="mtg-date">${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}${e.startTime?' · '+fmtT(e.startTime):''}</div>${e.title}</div>`;
+    }).join('');
+    panel.innerHTML=`<div class="contact-card">
+      <h3>${node.label}</h3>
+      <div class="contact-meta">${node.type==='external'?'External':'MRC Internal'}</div>
+      <div class="contact-stat"><span class="stat-label">Meetings (2 wks)</span><span class="stat-val">${node.meetings||0}</span></div>
+      <div class="contact-stat"><span class="stat-label">Relationship</span><span class="stat-val">${node.meetings>=5?'Active':node.meetings>=2?'Regular':'Occasional'}</span></div>
+      ${evtList?`<div class="mtg-list"><div class="sec-label" style="margin-bottom:8px">Recent meetings</div>${evtList}</div>`:''}
+    </div>`;
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// MEETING PREP TAB
+// ══════════════════════════════════════════════════════
+let prepEvents = [];
+let selectedPrepEvt = null;
+
+async function initPrep() {
+  const app = document.getElementById('prep-app');
+  let evts;
+  try { evts = await loadCalendar(); } catch(e) { app.innerHTML=`<div class="err">Could not load calendar.</div>`; return; }
+
+  prepEvents = evts.filter(e=>!e.isAllDay&&e.type!=='personal'&&e.startTime).slice(0,20);
+  if (!prepEvents.length) { app.innerHTML=`<div class="prep-empty">No upcoming business meetings found.</div>`; return; }
+
+  renderPrepList();
+}
+
+function renderPrepList(selectedEvt) {
+  const app = document.getElementById('prep-app');
+  const listHtml = prepEvents.map((ev,i) => {
+    const d=new Date(ev.dateStr+'T12:00:00'), isToday=ev.dateStr===todayStr;
+    const label=`${isToday?'Today':''}${!isToday?DAYS[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate():''}`;
+    const isSel=selectedEvt&&selectedEvt.title===ev.title&&selectedEvt.dateStr===ev.dateStr;
+    return `<button class="prep-evt-btn ${isSel?'active':''}" onclick="selectPrepEvt(${i})" style="width:100%">
+      <div class="prep-evt-title">${ev.title}</div>
+      <div class="prep-evt-time">${label} · ${fmtT(ev.startTime)}${ev.endTime?' – '+fmtT(ev.endTime):''}</div>
+    </button>`;
+  }).join('');
+
+  const detailHtml = selectedEvt ? renderPrepDetail(selectedEvt) : `<div class="prep-empty">Select a meeting to see prep notes</div>`;
+
+  app.innerHTML=`<div class="prep-upcoming"><h4>Upcoming meetings</h4>${listHtml}</div>${detailHtml}`;
+}
+
+function renderPrepDetail(ev) {
+  const d=new Date(ev.dateStr+'T12:00:00');
+  const dateLabel=`${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const timeLabel=`${fmtT(ev.startTime)}${ev.endTime?' – '+fmtT(ev.endTime):''}`;
+  const locHtml=ev.zoomUrl
+    ?`<a href="${ev.zoomUrl}" target="_blank" style="color:var(--zoom-fg)">Join Zoom ↗</a>`
+    :(ev.location||'TBD');
+  return `<div class="prep-card">
+    <h3>${ev.title}</h3>
+    <div class="prep-row"><span class="prep-label">Date</span>${dateLabel}</div>
+    <div class="prep-row"><span class="prep-label">Time</span>${timeLabel} PT</div>
+    <div class="prep-row"><span class="prep-label">Format</span>${locHtml}</div>
+    <div class="prep-row"><span class="prep-label">Type</span>${ev.type.charAt(0).toUpperCase()+ev.type.slice(1)}</div>
+  </div>
+  <div id="prep-ai-notes"><div class="loading" style="height:80px"><div class="spinner"></div> Generating prep notes…</div></div>`;
+}
+
+function selectPrepEvt(i) {
+  selectedPrepEvt = prepEvents[i];
+  renderPrepList(selectedPrepEvt);
+  // Generate AI prep notes
+  generatePrepNotes(selectedPrepEvt);
+}
+
+async function generatePrepNotes(ev) {
+  const notesEl = document.getElementById('prep-ai-notes');
+  if (!notesEl) return;
+  try {
+    const ctx = allEvents.filter(e=>e.title.toLowerCase().includes((ev.title.split('/')[0]||'').trim().toLowerCase().slice(0,10))&&e.dateStr!==ev.dateStr).slice(0,3).map(e=>`${e.dateStr}: ${e.title}`).join('; ');
+    const result = await window.cowork.sample(
+      `Generate brief meeting prep notes for an executive assistant. Be concise, practical, under 80 words. Format as 2-3 bullet points covering: what to confirm beforehand, any logistical notes, one question to have ready. Meeting: "${ev.title}" on ${ev.dateStr} at ${ev.startTime}. Location: ${ev.location||'TBD'}. Prior meetings with same attendees: ${ctx||'none found'}.`,
+      []
+    );
+    if (notesEl && !result.isError) {
+      const bullets = result.text.split('\n').filter(l=>l.trim()).map(l=>`<li style="margin-bottom:5px">${l.replace(/^[-•*]\s*/,'')}</li>`).join('');
+      notesEl.innerHTML=`<div class="prep-card"><div class="sec-label" style="margin-bottom:8px">Prep notes</div><ul style="padding-left:16px;font-size:12px;line-height:1.6">${bullets}</ul></div>`;
+    }
+  } catch(e) {
+    if (notesEl) notesEl.innerHTML='';
+  }
+}
+
+// Called from schedule tab when user clicks an event
+function showPrepForEvent(ev) {
+  if (ev.type==='personal'||ev.isAllDay) return;
+  selectedPrepEvt=ev;
+  // Switch to prep tab
+  document.querySelector('[data-tab="prep"]').click();
+  if (!prepInited) { prepInited=true; initPrep().then(()=>{ selectedPrepEvt=ev; renderPrepList(ev); generatePrepNotes(ev); }); }
+  else { renderPrepList(ev); generatePrepNotes(ev); }
+}
+</script>
+</body>
+</html>

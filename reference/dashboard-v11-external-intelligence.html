@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asif Satchu · External Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root {
+    --bg: #faf8f4;
+    --panel: #ffffff;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --faint: #d8d4cc;
+    --rule: #d8d4cc;
+    --navy: #2d4a8b;
+    --amber: #b8862c;
+    --olive: #5c6b47;
+    --red: #b84a2c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', 'Garamond', 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 40px 56px 100px;
+    max-width: 1320px;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  header .title h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header .title .subtitle {
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+  }
+  header .meta {
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: right;
+  }
+  header .meta .timestamp {
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  header .meta .view-toggle {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid var(--ink);
+    margin-top: 8px;
+  }
+  header .meta .view-toggle button {
+    background: none;
+    border: none;
+    padding: 4px 12px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    color: var(--muted);
+    border-right: 1px solid var(--ink);
+  }
+  header .meta .view-toggle button:last-child { border-right: none; }
+  header .meta .view-toggle button.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 44px;
+  }
+  .col-main > section { margin-bottom: 48px; }
+  .col-side > section { margin-bottom: 32px; }
+
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ink);
+    font-variant: small-caps;
+    letter-spacing: 0.02em;
+  }
+  h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 18px 0 8px;
+    color: var(--muted);
+    font-style: italic;
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Relationship map — D3 force graph */
+  #radar {
+    width: 100%;
+    height: 560px;
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    position: relative;
+  }
+  #radar text {
+    font-family: 'Georgia', serif;
+    pointer-events: none;
+  }
+  #radar .node-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-anchor: middle;
+    fill: var(--ink);
+  }
+  #radar .node-count {
+    font-size: 9px;
+    fill: var(--muted);
+    text-anchor: middle;
+    font-family: 'Inter', sans-serif;
+  }
+  #radar .node-silent {
+    opacity: 0.35;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .silent-list {
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    padding: 16px 20px;
+    margin-top: 16px;
+  }
+  .silent-list .item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--faint);
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+  }
+  .silent-list .item:last-child { border-bottom: none; }
+  .silent-list .weeks {
+    color: var(--red);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  /* Week calendar (timeline view) */
+  .week-cal {
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    position: relative;
+  }
+  .week-cal-header {
+    display: grid;
+    grid-template-columns: 56px repeat(5, 1fr);
+    border-bottom: 1px solid var(--faint);
+    font-family: 'Inter', sans-serif;
+  }
+  .week-cal-header .day-header {
+    padding: 10px 8px;
+    text-align: center;
+    border-right: 1px solid var(--faint);
+  }
+  .week-cal-header .day-header:last-child { border-right: none; }
+  .week-cal-header .day-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .week-cal-header .day-date {
+    font-family: 'Georgia', serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .week-cal-header .day-count {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .week-cal-header .all-day-row {
+    grid-column: 2 / -1;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .week-cal-body {
+    display: grid;
+    grid-template-columns: 56px repeat(5, 1fr);
+    position: relative;
+  }
+  .week-cal-body .time-axis {
+    border-right: 1px solid var(--faint);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    color: var(--muted);
+    position: relative;
+  }
+  .week-cal-body .time-axis .tick {
+    position: absolute;
+    right: 8px;
+    transform: translateY(-50%);
+  }
+  .week-cal-body .day-col {
+    border-right: 1px solid var(--faint);
+    position: relative;
+    min-height: 570px;
+    overflow: hidden;
+  }
+  .week-cal-body .day-col:last-child { border-right: none; }
+  .week-cal { overflow: hidden; }
+  .week-cal-body .hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #ebe7df;
+  }
+  .week-cal-body .evt {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    padding: 3px 5px;
+    border-radius: 2px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.68rem;
+    line-height: 1.15;
+    overflow: hidden;
+    border-left: 3px solid;
+  }
+  .week-cal-body .evt .evt-title { font-weight: 600; }
+  .week-cal-body .evt .evt-time { opacity: 0.7; font-size: 0.6rem; }
+  .week-cal-body .evt.ext   { background: #f4ead5; border-left-color: var(--amber); color: #5c431a; }
+  .week-cal-body .evt.int   { background: #e0e7f5; border-left-color: var(--navy); color: #1d2e56; }
+  .week-cal-body .evt.pers  { background: #f0eee5; border-left-color: #a89f82; color: #4a4431; }
+  .week-cal-body .evt.hold  { background: #f7f4ec; border-left-color: #a89f82; color: var(--muted); font-style: italic; }
+  .week-cal-body .evt.lunch { background: repeating-linear-gradient(45deg, transparent, transparent 4px, #ebe7df 4px, #ebe7df 8px); border-left: none; color: var(--muted); font-size: 0.6rem; text-align: center; }
+  .week-cal-all-day {
+    display: grid;
+    grid-template-columns: 56px repeat(5, 1fr);
+    border-bottom: 1px solid var(--faint);
+    background: #fbf9f3;
+    min-height: 24px;
+  }
+  .week-cal-all-day .slot {
+    border-right: 1px solid var(--faint);
+    padding: 3px 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    color: var(--muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .week-cal-all-day .slot:last-child { border-right: none; }
+  .week-cal-all-day .slot.axis { text-align: right; font-style: italic; }
+
+  /* Avails generator */
+  .avails-gen {
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    padding: 22px 26px;
+  }
+  .avails-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--faint);
+    margin-bottom: 16px;
+  }
+  .avails-tabs button {
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    padding: 10px 18px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    transition: all 0.1s;
+  }
+  .avails-tabs button:hover { color: var(--ink); }
+  .avails-tabs button.active {
+    color: var(--navy);
+    border-bottom-color: var(--navy);
+    font-weight: 600;
+  }
+  .avails-people-picker {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 0 14px;
+    border-bottom: 1px solid var(--faint);
+    margin-bottom: 12px;
+  }
+  .avails-people-picker .label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 6px;
+  }
+  .avails-people-picker .person-chip {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    padding: 5px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.12s;
+    user-select: none;
+  }
+  .avails-people-picker .person-chip:hover { border-color: var(--ink); color: var(--ink); }
+  .avails-people-picker .person-chip.selected {
+    background: var(--navy);
+    color: white;
+    border-color: var(--navy);
+    font-weight: 600;
+  }
+  .avails-people-picker .quick-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+  .avails-people-picker .quick-actions button {
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    color: var(--navy);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .avails-people-picker .quick-actions button:hover { color: var(--ink); }
+  .avails-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 20px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--faint);
+    align-items: center;
+  }
+  .avails-row:last-child { border-bottom: none; }
+  .avails-row .time {
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .avails-row .people {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .avails-row .chip {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: #e9efe2;
+    color: #3a4630;
+  }
+  .avails-row .chip.out  { background: #f5e5e0; color: #7a2f1e; text-decoration: line-through; opacity: 0.7; }
+  .avails-row .chip.tent { background: #f4ead5; color: #5c431a; font-style: italic; }
+  .avails-row.full-clear .time { color: var(--olive); }
+  .avails-row.near-clear .time { color: var(--ink); }
+  .avails-summary {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--faint);
+    font-style: italic;
+  }
+
+  /* New contacts table */
+  .new-contacts .row {
+    display: grid;
+    grid-template-columns: 1fr 80px 140px;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--faint);
+    align-items: center;
+    font-size: 0.9rem;
+  }
+  .new-contacts .row:last-child { border-bottom: none; }
+  .new-contacts .count {
+    font-family: 'Inter', sans-serif;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .new-contacts .actions button {
+    background: none;
+    border: 1px solid var(--muted);
+    padding: 4px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    cursor: pointer;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .new-contacts .actions button:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+  .new-contacts .tagged {
+    color: var(--olive);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* Sidebar: at a glance */
+  .glance {
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    padding: 20px 22px;
+  }
+  .glance .stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--faint);
+  }
+  .glance .stat:last-child { border-bottom: none; }
+  .glance .stat .label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .glance .stat .val {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .glance .notes {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--faint);
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Sidebar: avails */
+  .avails-panel .window {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--faint);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .avails-panel .window:last-child { border-bottom: none; }
+  .avails-panel .time {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .avails-panel .status {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .avails-panel .status.all-clear {
+    color: var(--olive);
+    font-weight: 600;
+  }
+
+  /* Sidebar: scheduler */
+  .scheduler-panel .item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--faint);
+  }
+  .scheduler-panel .item:last-child { border-bottom: none; }
+  .scheduler-panel .subject {
+    font-weight: 600;
+    font-size: 0.9rem;
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+  .scheduler-panel .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .scheduler-panel .status-badge {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: white;
+  }
+  .scheduler-panel .status-ext    { background: var(--amber); }
+  .scheduler-panel .status-int    { background: var(--navy); }
+  .scheduler-panel .status-sched  { background: var(--olive); }
+  .scheduler-panel .status-stale  { background: var(--red); }
+  .scheduler-panel .counterparty {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .scheduler-panel .note {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .scheduler-panel .timing {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 6px;
+  }
+  .scheduler-panel .empty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.85rem;
+    padding: 10px 0;
+  }
+
+  /* Meeting Mix (sidebar) */
+  .mix-panel { background: var(--panel); border: 1px solid var(--faint); padding: 18px 20px; }
+  .mix-bar {
+    display: flex; height: 24px; border-radius: 2px; overflow: hidden; margin: 10px 0 14px;
+  }
+  .mix-bar .seg { height: 100%; }
+  .mix-bar .seg.ext   { background: var(--amber); }
+  .mix-bar .seg.int   { background: var(--navy); }
+  .mix-bar .seg.pers  { background: #a89f82; }
+  .mix-bar .seg.hold  { background: #c4bfb4; }
+  .mix-legend { font-family: 'Inter', sans-serif; font-size: 0.75rem; }
+  .mix-legend .row { display: flex; justify-content: space-between; padding: 4px 0; align-items: center; }
+  .mix-legend .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 1px; vertical-align: middle; }
+  .mix-legend .pct { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Side drawer (radar detail) */
+  .drawer-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26,26,26,0.3); z-index: 100;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 92vw;
+    background: var(--bg); z-index: 101; padding: 32px 36px; overflow-y: auto;
+    transform: translateX(100%); transition: transform 0.22s ease-out;
+    box-shadow: -2px 0 20px rgba(0,0,0,0.08);
+    border-left: 1px solid var(--faint);
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer .close-btn {
+    position: absolute; top: 18px; right: 22px;
+    background: none; border: none; font-size: 1.4rem; color: var(--muted);
+    cursor: pointer; font-family: serif;
+  }
+  .drawer .close-btn:hover { color: var(--ink); }
+  .drawer h3 {
+    font-family: 'Georgia', serif; font-size: 1.6rem; font-weight: 700;
+    color: var(--ink); border-bottom: 2px solid var(--ink);
+    padding-bottom: 8px; margin-bottom: 14px; font-style: normal;
+    text-transform: none; letter-spacing: -0.01em;
+  }
+  .drawer .meta-row {
+    font-family: 'Inter', sans-serif; font-size: 0.78rem; color: var(--muted);
+    margin-bottom: 18px; display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .drawer .meta-row .chip {
+    padding: 3px 9px; border: 1px solid var(--faint); border-radius: 2px;
+  }
+  .drawer .section-title {
+    font-family: 'Inter', sans-serif; font-size: 0.72rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin: 22px 0 8px;
+    padding-bottom: 4px; border-bottom: 1px solid var(--faint);
+  }
+  .drawer .contact-row, .drawer .history-row {
+    padding: 8px 0; border-bottom: 1px solid var(--faint); font-size: 0.9rem;
+  }
+  .drawer .contact-row:last-child, .drawer .history-row:last-child { border-bottom: none; }
+  .drawer .history-row .date {
+    font-family: 'Inter', sans-serif; font-size: 0.72rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .drawer .drawer-actions {
+    display: flex; gap: 10px; margin-top: 22px;
+  }
+  .drawer .drawer-actions button {
+    font-family: 'Inter', sans-serif; font-size: 0.8rem;
+    padding: 8px 14px; cursor: pointer; border: 1px solid var(--ink);
+    background: var(--ink); color: var(--bg); letter-spacing: 0.03em;
+  }
+  .drawer .drawer-actions button.secondary {
+    background: var(--bg); color: var(--ink);
+  }
+  .drawer .drawer-actions button:hover { opacity: 0.85; }
+  .drawer .notes {
+    font-size: 0.88rem; font-style: italic; color: var(--muted);
+    line-height: 1.5; padding: 10px 0;
+  }
+
+  /* Popover (week event detail) */
+  .popover {
+    position: fixed; z-index: 99; background: var(--panel);
+    border: 1px solid var(--ink); padding: 16px 20px;
+    max-width: 320px; box-shadow: 2px 4px 16px rgba(0,0,0,0.1);
+    opacity: 0; transform: translateY(-4px); transition: opacity 0.15s, transform 0.15s;
+    pointer-events: none;
+  }
+  .popover.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .popover .pop-title {
+    font-weight: 700; font-size: 1rem; margin-bottom: 4px; line-height: 1.3;
+  }
+  .popover .pop-time {
+    font-family: 'Inter', sans-serif; font-size: 0.75rem; color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .popover .pop-row {
+    font-size: 0.82rem; padding: 4px 0; display: flex; gap: 8px;
+  }
+  .popover .pop-row .label {
+    font-family: 'Inter', sans-serif; color: var(--muted); min-width: 70px;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 2px;
+  }
+  .popover .pop-actions { display: flex; gap: 6px; margin-top: 12px; }
+  .popover .pop-actions button {
+    font-family: 'Inter', sans-serif; font-size: 0.72rem; padding: 5px 10px;
+    cursor: pointer; border: 1px solid var(--ink); background: var(--bg); color: var(--ink);
+  }
+  .popover .pop-actions button.primary { background: var(--ink); color: var(--bg); }
+
+  .week-cal-body .evt { cursor: pointer; }
+  .week-cal-body .evt:hover { filter: brightness(0.96); }
+  #radar circle:not([data-center]) { cursor: pointer; }
+
+  /* Team Heatmap */
+  .team-heatmap {
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    padding: 16px 0 0;
+  }
+  .team-heatmap-grid {
+    display: grid;
+    grid-template-columns: 140px repeat(5, 1fr);
+  }
+  .team-heatmap-grid .th {
+    padding: 10px 8px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--faint);
+  }
+  .team-heatmap-grid .th.date {
+    font-family: 'Georgia', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ink);
+    text-transform: none;
+    margin-top: 2px;
+  }
+  .team-heatmap-grid .person {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--faint);
+    border-right: 1px solid var(--faint);
+  }
+  .team-heatmap-grid .person .pname {
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+  .team-heatmap-grid .person .prole {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .team-heatmap-grid .cell {
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--faint);
+    border-right: 1px solid var(--faint);
+    position: relative;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .team-heatmap-grid .cell:last-child { border-right: none; }
+  .team-heatmap-grid .person-row:last-child .cell,
+  .team-heatmap-grid .person-row:last-child .person { border-bottom: none; }
+  .team-heatmap-legend {
+    display: flex;
+    gap: 20px;
+    padding: 10px 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    border-top: 1px solid var(--faint);
+    justify-content: flex-end;
+  }
+  .team-heatmap-legend .lbox {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    vertical-align: middle;
+    margin-right: 4px;
+    border: 1px solid var(--faint);
+  }
+
+  /* Team Coverage Matrix */
+  .coverage-matrix {
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    overflow-x: auto;
+  }
+  .coverage-matrix table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+  }
+  .coverage-matrix th {
+    background: #f7f4ec;
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--faint);
+  }
+  .coverage-matrix th.entity-col {
+    text-align: left;
+    padding-left: 16px;
+  }
+  .coverage-matrix td {
+    padding: 8px 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--faint);
+  }
+  .coverage-matrix td.entity-name {
+    text-align: left;
+    padding-left: 16px;
+    font-family: 'Georgia', serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .coverage-matrix td.entity-name .type {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    display: block;
+    margin-top: 1px;
+    font-weight: normal;
+  }
+  .coverage-matrix td.total {
+    font-weight: 700;
+  }
+  .coverage-matrix tr.single-point td.entity-name {
+    color: var(--amber);
+  }
+  .coverage-matrix tr.single-point::after { }
+  .coverage-matrix tr.silent td { opacity: 0.6; }
+  .coverage-matrix tr.silent td.entity-name { color: var(--red); }
+  .coverage-matrix .count-0 { color: #c4bfb4; }
+  .coverage-matrix .risk-tag {
+    display: inline-block;
+    font-size: 0.62rem;
+    background: var(--amber);
+    color: white;
+    padding: 1px 6px;
+    margin-left: 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+  }
+  .coverage-matrix .silent-tag {
+    display: inline-block;
+    font-size: 0.62rem;
+    background: var(--red);
+    color: white;
+    padding: 1px 6px;
+    margin-left: 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Team-mode section visibility */
+  .only-team { display: none; }
+  .only-individual { display: block; }
+  body.team-mode .only-team { display: block; }
+  body.team-mode .only-individual { display: none; }
+
+  /* Main tab navigation */
+  .main-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .main-tabs button {
+    background: none;
+    border: none;
+    font-family: 'Georgia', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding: 12px 22px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.12s;
+    letter-spacing: 0.01em;
+  }
+  .main-tabs button:hover { color: var(--ink); }
+  .main-tabs button.active {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+  }
+  .main-tabs button .tab-badge {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    margin-left: 6px;
+    padding: 1px 6px;
+    background: var(--amber);
+    color: white;
+    border-radius: 2px;
+    vertical-align: middle;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Remove section bottom margin inside tabs since they don't stack */
+  .tab-panel > section { margin-bottom: 24px; }
+  .tab-panel > section:last-child { margin-bottom: 0; }
+
+  /* Hide section h2 where it's redundant with tab label */
+  .tab-panel > section:first-child > h2.tab-match { display: none; }
+
+  /* Sidebar: tracked */
+  .tracked-panel .item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--faint);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 0.9rem;
+  }
+  .tracked-panel .item:last-child { border-bottom: none; }
+  .tracked-panel input[type=checkbox] {
+    margin-top: 4px;
+    accent-color: var(--navy);
+  }
+  .tracked-panel .item.done .text {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+
+  /* Sidebar: recent queries */
+  .recent-queries .q {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 0.85rem;
+  }
+  .recent-queries .q:last-child { border-bottom: none; }
+  .recent-queries .when {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .recent-queries .summary {
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  footer {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 60px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <h1 id="subject-name">Loading…</h1>
+    <div class="subtitle" id="subject-subtitle">External intelligence</div>
+  </div>
+  <div class="meta">
+    <div class="timestamp" id="timestamp">—</div>
+    <div id="window-label">—</div>
+    <div class="view-toggle" id="view-toggle">
+      <button class="active" data-view="individual">Individual</button>
+      <button data-view="team">Team</button>
+    </div>
+  </div>
+</header>
+
+<div class="grid">
+
+  <div class="col-main">
+
+    <!-- Tab navigation -->
+    <div class="main-tabs" id="main-tabs">
+      <button data-tab="week" class="active only-individual">Week</button>
+      <button data-tab="team" class="only-team">Team</button>
+      <button data-tab="avails">Avails</button>
+      <button data-tab="relationships">Relationships</button>
+    </div>
+
+    <!-- TAB: Week (individual) -->
+    <div class="tab-panel active only-individual" data-panel="week">
+      <section>
+        <div class="week-cal" id="week-cal"></div>
+        <div style="font-family: 'Inter', sans-serif; font-size: 0.7rem; color: var(--muted); margin-top: 10px; display: flex; gap: 16px; flex-wrap: wrap;">
+          <span><span class="legend-dot" style="background: var(--amber);"></span>External</span>
+          <span><span class="legend-dot" style="background: var(--navy);"></span>Internal</span>
+          <span><span class="legend-dot" style="background: #a89f82;"></span>Personal</span>
+          <span><span class="legend-dot" style="background: #a89f82; opacity: 0.5;"></span>Hold</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- TAB: Team (team mode only) -->
+    <div class="tab-panel only-team" data-panel="team">
+      <section>
+        <h2>Team Heatmap</h2>
+        <div class="team-heatmap" id="team-heatmap"></div>
+        <div style="font-family: 'Inter', sans-serif; font-size: 0.72rem; color: var(--muted); margin-top: 10px; font-style: italic;">
+          Hours busy per person per day (of 9.5 business hours). Darker = more packed.
+        </div>
+      </section>
+
+      <section>
+        <h2>Coverage Across Team</h2>
+        <div class="coverage-matrix" id="coverage-matrix"></div>
+        <div style="font-family: 'Inter', sans-serif; font-size: 0.72rem; color: var(--muted); margin-top: 10px; font-style: italic;">
+          Meeting counts by entity × person (last 30 days). Amber = single-point risk. Red = silent.
+        </div>
+      </section>
+    </div>
+
+    <!-- TAB: Avails -->
+    <div class="tab-panel" data-panel="avails">
+      <section>
+        <div class="avails-gen">
+          <div class="avails-people-picker" id="avails-people-picker"></div>
+          <div class="avails-tabs" id="avails-tabs"></div>
+          <div id="avails-generator"></div>
+          <div class="avails-summary" id="avails-summary"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- TAB: Relationships -->
+    <div class="tab-panel" data-panel="relationships">
+      <section>
+        <h2 id="radar-title" class="tab-match">The Relationship Map</h2>
+        <div id="radar"></div>
+        <div class="legend" id="legend"></div>
+        <div class="silent-list" id="silent-list"></div>
+        <div class="only-individual" style="margin-top: 20px;">
+          <h3 style="text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.75rem; color: var(--muted); font-family: 'Inter', sans-serif; font-style: normal; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--faint);">New Contacts to Tag</h3>
+          <div class="new-contacts" id="new-contacts"></div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <div class="col-side">
+
+    <section class="scheduler-panel">
+      <h2>Scheduling Queue</h2>
+      <div id="scheduler-list"></div>
+    </section>
+
+    <section class="tracked-panel">
+      <h2>Tracked</h2>
+      <div id="tracked-list"></div>
+    </section>
+
+    <section class="glance">
+      <h2 style="border: none; padding: 0; margin-bottom: 10px;">At a Glance</h2>
+      <div id="glance-stats"></div>
+      <div class="notes" id="glance-notes"></div>
+    </section>
+
+    <section class="mix-panel">
+      <h2 style="border: none; padding: 0; margin-bottom: 4px;">Meeting Mix</h2>
+      <div id="mix-window" style="font-family: 'Inter', sans-serif; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;"></div>
+      <div class="mix-bar" id="mix-bar"></div>
+      <div class="mix-legend" id="mix-legend"></div>
+    </section>
+
+    <details class="recent-queries" style="margin-top: 12px;">
+      <summary style="cursor: pointer; font-family: 'Inter', sans-serif; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 0;">Recent Queries</summary>
+      <div id="queries-list" style="margin-top: 8px;"></div>
+    </details>
+
+  </div>
+
+</div>
+
+<!-- Radar detail drawer -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="close-btn" onclick="closeDrawer()">×</button>
+  <div id="drawer-content"></div>
+</div>
+
+<!-- Event detail popover -->
+<div class="popover" id="popover">
+  <div id="popover-content"></div>
+</div>
+
+<footer>
+  <div>Calendar Intelligence · Dashboard</div>
+  <div id="footer-meta">Generated by /dashboard-generate</div>
+</footer>
+
+<script id="data" type="application/json">
+{
+  "meta": {
+    "subject": "Asif Satchu",
+    "subjectLabel": "Co-Chairman, MRC",
+    "role": "ea",
+    "user": "Elizabeth Nakamura",
+    "generatedAt": "2026-04-16T17:40:00-07:00",
+    "window": "Last 90 days · Jan 16 – Apr 16"
+  },
+  "glance": {
+    "externalMtgs": 13,
+    "entities": 8,
+    "newContacts": 4,
+    "blindSpots": 2,
+    "notes": [
+      "Asif was OOO in Argentina Mar 22 – Apr 5 (~14 days).",
+      "External activity is finance/tax heavy — not streamer/studio.",
+      "Entity map base pack mostly irrelevant for this exec — use personal pack."
+    ]
+  },
+  "relationships": {
+    "nodes": [
+      { "id": "Alignvest", "type": "Finance", "meetings": 2, "lastMet": "2026-01-20", "silent": false },
+      { "id": "Cadesky", "type": "Finance", "meetings": 1, "lastMet": "2026-01-20", "silent": false },
+      { "id": "Grant Thornton", "type": "Finance", "meetings": 2, "lastMet": "2026-04-09", "silent": false },
+      { "id": "Peter Lamm", "type": "Advisor", "meetings": 2, "lastMet": "2026-04-10", "silent": false },
+      { "id": "Josh Brody", "type": "Advisor", "meetings": 4, "lastMet": "2026-01-21", "silent": false },
+      { "id": "Ben Weber", "type": "Advisor", "meetings": 3, "lastMet": "2026-03-19", "silent": false },
+      { "id": "Jeff Sanders", "type": "Advisor", "meetings": 1, "lastMet": "2026-03-21", "silent": false },
+      { "id": "Moelis", "type": "Finance", "meetings": 1, "lastMet": "2026-04-07", "silent": false },
+      { "id": "Gau", "type": "Advisor", "meetings": 1, "lastMet": "2026-04-14", "silent": false },
+      { "id": "Tim Connors", "type": "Advisor", "meetings": 1, "lastMet": "2026-04-13", "silent": false }
+    ],
+    "silent": [
+      { "entity": "BFI", "lastMet": "2026-02-23", "weeksSilent": 7 },
+      { "entity": "Jon Schaffrath", "lastMet": "2026-03-18", "weeksSilent": 4 }
+    ],
+    "newCandidates": [
+      { "name": "Peter Lamm", "meetings": 2, "suggestedType": "Advisor", "status": "pending" },
+      { "name": "Brad Navin & Danny Stein", "meetings": 1, "suggestedType": "Advisor", "status": "pending" },
+      { "name": "Tim Connors", "meetings": 1, "suggestedType": "Advisor", "status": "pending" },
+      { "name": "Duncan Weatherston", "meetings": 1, "suggestedType": "Other (Smile Digital Health)", "status": "tagged" }
+    ]
+  },
+  "weekAhead": {
+    "startDate": "2026-04-20",
+    "days": [
+      {
+        "date": "Apr 20", "day": "Mon", "iso": "2026-04-20",
+        "allDay": ["MIRMAN Progress Conf"],
+        "events": [
+          { "start": "07:00", "end": "08:00", "title": "Soleil — EMS", "type": "pers" },
+          { "start": "10:20", "end": "11:20", "title": "Zain Progress Conf", "type": "pers" },
+          { "start": "11:00", "end": "11:45", "title": "AI Weekly (Scott, COC, Jack, Gau)", "type": "int" }
+        ]
+      },
+      {
+        "date": "Apr 21", "day": "Tue", "iso": "2026-04-21",
+        "allDay": ["MIRMAN Progress Conf"],
+        "events": [
+          { "start": "07:15", "end": "08:30", "title": "Alex — PT", "type": "pers" },
+          { "start": "09:30", "end": "11:30", "title": "IR Architects (Tower Rd)", "type": "pers" },
+          { "start": "13:00", "end": "14:00", "title": "Asif / Ben / Modi Weekly", "type": "ext" },
+          { "start": "15:00", "end": "16:00", "title": "Weekly // COC, AS, ST", "type": "int" }
+        ]
+      },
+      {
+        "date": "Apr 22", "day": "Wed", "iso": "2026-04-22",
+        "allDay": ["David Amber BDay", "Earth Day Spirit"],
+        "events": [
+          { "start": "08:30", "end": "09:00", "title": "David Amber's BDay", "type": "pers" },
+          { "start": "12:00", "end": "13:00", "title": "Asif/Modi/Scott Weekly", "type": "int" },
+          { "start": "13:15", "end": "14:00", "title": "Modi & Asif Lunch", "type": "int" },
+          { "start": "14:00", "end": "14:30", "title": "HOLD: Juliet / Asif", "type": "hold" },
+          { "start": "16:30", "end": "17:30", "title": "Zain Soccer", "type": "pers" },
+          { "start": "17:30", "end": "18:30", "title": "Zahra Catalina Zoom", "type": "pers" }
+        ]
+      },
+      {
+        "date": "Apr 23", "day": "Thu", "iso": "2026-04-23",
+        "allDay": ["Navid Bday"],
+        "events": [
+          { "start": "07:15", "end": "08:30", "title": "Alex — PT", "type": "pers" },
+          { "start": "11:30", "end": "12:30", "title": "Asif / Ben / Modi Weekly", "type": "ext" }
+        ]
+      },
+      {
+        "date": "Apr 24", "day": "Fri", "iso": "2026-04-24",
+        "allDay": ["Zain & Zahra Birthday", "MIRMAN Spirit Wear"],
+        "events": [
+          { "start": "09:30", "end": "11:00", "title": "Satchu Home Design", "type": "pers" },
+          { "start": "13:00", "end": "13:30", "title": "Asif + Modi × Joowon Kim", "type": "ext" }
+        ]
+      }
+    ]
+  },
+  "avails": {
+    "cohort": "Asif + Scott + Modi + COC + Jenna (5)",
+    "people": ["AS", "ST", "MW", "COC", "JS"],
+    "days": [
+      {
+        "date": "Mon Apr 20", "iso": "2026-04-20",
+        "fullClear": [
+          { "start": "2:00 PM", "end": "3:00 PM", "count": 5 },
+          { "start": "4:30 PM", "end": "5:00 PM", "count": 5 }
+        ],
+        "nearClear": [
+          { "start": "12:00 PM", "end": "1:00 PM", "count": 3, "missing": ["COC","JS"] },
+          { "start": "11:00 AM", "end": "12:00 PM", "count": 4, "missing": ["JS"] }
+        ],
+        "summary": "Asif free PM. Best: 2:00 PM (full clear)."
+      },
+      {
+        "date": "Tue Apr 21", "iso": "2026-04-21",
+        "fullClear": [
+          { "start": "5:30 PM", "end": "6:00 PM", "count": 5 }
+        ],
+        "nearClear": [
+          { "start": "11:30 AM", "end": "12:00 PM", "count": 4, "missing": ["JS"] },
+          { "start": "2:00 PM", "end": "2:30 PM", "count": 4, "missing": ["MW"] }
+        ],
+        "summary": "Asif has Mirman conf 9:30-11:30. Tight day. 5:30 PM is only full clear."
+      },
+      {
+        "date": "Wed Apr 22", "iso": "2026-04-22",
+        "fullClear": [
+          { "start": "11:00 AM", "end": "11:30 AM", "count": 5 },
+          { "start": "4:00 PM", "end": "4:30 PM", "count": 5 }
+        ],
+        "nearClear": [
+          { "start": "4:30 PM", "end": "5:30 PM", "count": 4, "missing": ["AS (tent)"] }
+        ],
+        "summary": "Asif tentative 12-5:30 (Amber Bday). Best: 11:00 AM or 4:00 PM."
+      },
+      {
+        "date": "Thu Apr 23", "iso": "2026-04-23", "selected": true,
+        "fullClear": [
+          { "start": "12:30 PM", "end": "1:00 PM", "count": 5 },
+          { "start": "5:30 PM", "end": "6:00 PM", "count": 5 }
+        ],
+        "nearClear": [
+          { "start": "11:00 AM", "end": "11:30 AM", "count": 4, "missing": ["JS"] },
+          { "start": "4:30 PM", "end": "5:30 PM", "count": 4, "missing": ["JS"] }
+        ],
+        "summary": "Navid Bday hold 11:30-12:30 (Asif tentative). Best: 12:30 PM or 5:30 PM."
+      },
+      {
+        "date": "Fri Apr 24", "iso": "2026-04-24",
+        "fullClear": [
+          { "start": "2:00 PM", "end": "3:00 PM", "count": 5 },
+          { "start": "4:00 PM", "end": "6:00 PM", "count": 5 }
+        ],
+        "nearClear": [
+          { "start": "12:30 PM", "end": "1:00 PM", "count": 5, "note": "Asif prefers not Fri PM" }
+        ],
+        "summary": "Friday afternoon OFF per Asif prefs. If needed: 12:30 PM clear across all 5."
+      }
+    ]
+  },
+  "scheduler": [
+    {
+      "id": "sched-2026-04-15-001",
+      "subject": "Asif / Michel Pratte (drinks)",
+      "status": "awaiting-external-confirm",
+      "counterparty": "Blake Hobson · The Initial Group",
+      "proposed": "Wed Apr 29 · 5:00 PM PT",
+      "note": "Awaiting Asif's go-ahead to confirm. Text sent.",
+      "age": "Created 1d ago"
+    },
+    {
+      "id": "sched-2026-04-16-001",
+      "subject": "Scott / Asif / Modi Weekly — time change",
+      "status": "awaiting-internal-confirm",
+      "counterparty": "Ashley Cavecche · EA to Modi",
+      "proposed": "Mon 12:00 PM PT (shift from 11:30am)",
+      "note": "Scott confirmed OK. Need Asif's sign-off, then confirm with Ashley.",
+      "age": "Updated 8h ago"
+    }
+  ],
+  "trackedItems": [
+    { "id": "1", "text": "Confirm Michel Pratte drinks (Apr 29)", "done": false },
+    { "id": "2", "text": "BTO CEO one-pager to Ashley/Modi", "done": false },
+    { "id": "3", "text": "Follow up with Peter Lamm (2 mtgs, no known relationship)", "done": false },
+    { "id": "4", "text": "Add Alignvest / Cadesky / Grant Thornton to entity map", "done": true }
+  ],
+  "mix": {
+    "windowLabel": "Last 7 days",
+    "totalHours": 28,
+    "segments": [
+      { "type": "ext",  "label": "External", "hours": 4.25, "count": 5 },
+      { "type": "int",  "label": "Internal", "hours": 11.5, "count": 14 },
+      { "type": "pers", "label": "Personal", "hours": 10.5, "count": 18 },
+      { "type": "hold", "label": "Holds",    "hours": 1.75, "count": 3 }
+    ]
+  },
+  "entityDetails": {
+    "Alignvest": {
+      "type": "Finance",
+      "notes": "Reza Satchu's firm (Asif's brother). Family office / personal finance context.",
+      "contacts": [
+        { "name": "Reza Satchu", "title": "Managing Partner", "email": "rsatchu@alignvest.com" },
+        { "name": "Jessica Ebert", "title": "EA to Reza", "email": "jessica@alignvest.com" },
+        { "name": "Mandy Anger", "title": "—", "email": "manger@alignvest.com" }
+      ],
+      "history": [
+        { "date": "2026-01-20", "title": "Call: Sussex and Ontario Cap Corp dissolution", "context": "Joint call w/ Cadesky + Grant Thornton + Jaclyn Davis" }
+      ],
+      "cadence": "Infrequent (1-2 per year, family office coordination)"
+    },
+    "Cadesky": {
+      "type": "Finance",
+      "notes": "Canadian tax advisors. Works with Asif on personal/estate tax matters.",
+      "contacts": [
+        { "name": "Dean Smith", "title": "Partner", "email": "dsmith@cadesky.com" },
+        { "name": "Simone Belnavis", "title": "—", "email": "sbelnavis@cadesky.com" },
+        { "name": "Roseli Lima", "title": "—", "email": "rlima@cadesky.com" }
+      ],
+      "history": [
+        { "date": "2026-01-20", "title": "Call: Sussex and Ontario Cap Corp dissolution", "context": "Multi-party tax coordination" }
+      ],
+      "cadence": "As-needed (tax cycle)"
+    },
+    "Grant Thornton": {
+      "type": "Finance",
+      "notes": "US tax advisors. Angie Sosa and Ryan Kim handle Asif's personal tax work.",
+      "contacts": [
+        { "name": "Angie Sosa", "title": "Tax Partner", "email": "angie.sosa@us.gt.com" },
+        { "name": "Ryan Kim", "title": "Tax Manager", "email": "ryan.kim@us.gt.com" }
+      ],
+      "history": [
+        { "date": "2026-04-09", "title": "ZOOM: Angie, Ryan, Asif re: Taxes", "context": "US tax review" },
+        { "date": "2026-03-18", "title": "Call re: Tax // Angie, Asif", "context": "Quarterly check-in" },
+        { "date": "2026-01-20", "title": "Sussex/Ontario Cap Corp dissolution", "context": "Joint w/ Cadesky" }
+      ],
+      "cadence": "Monthly during tax cycles"
+    },
+    "Peter Lamm": {
+      "type": "Advisor",
+      "notes": "Finance advisor. Associates include Morgan Hewett and Kate Tyshchenko.",
+      "contacts": [
+        { "name": "Peter Lamm", "title": "Principal", "email": "—" },
+        { "name": "Morgan Hewett", "title": "—", "email": "—" },
+        { "name": "Kate Tyshchenko", "title": "—", "email": "—" }
+      ],
+      "history": [
+        { "date": "2026-04-10", "title": "ZOOM: Peter Lamm, Morgan Hewett, Kate Tyshchenko, Asif", "context": "Group call" },
+        { "date": "2026-04-06", "title": "ZOOM: Peter Lamm / Asif", "context": "1:1 follow-up" }
+      ],
+      "cadence": "Emerging — 2 meetings in 4 days, new relationship"
+    },
+    "Josh Brody": {
+      "type": "Advisor",
+      "notes": "Personal/family advisor. Uses jmbrody@gmail.com.",
+      "contacts": [
+        { "name": "Josh Brody", "title": "Advisor", "email": "jmbrody@gmail.com" }
+      ],
+      "history": [
+        { "date": "2026-01-21", "title": "Zoom: Josh Brody & Asif", "context": "1:1" },
+        { "date": "2026-01-21", "title": "Zoom: Josh & Asif", "context": "Same-day follow-up" },
+        { "date": "2026-01-20", "title": "Zoom: Asif x Josh", "context": "Kickoff" },
+        { "date": "2026-01-16", "title": "Call with Josh", "context": "Intro" }
+      ],
+      "cadence": "Intense Jan (4 meetings in 5 days), quiet since"
+    },
+    "Ben Weber": {
+      "type": "Advisor",
+      "notes": "Advisor. Weekly recurring w/ Asif + Modi.",
+      "contacts": [
+        { "name": "Ben Weber", "title": "Advisor", "email": "—" }
+      ],
+      "history": [
+        { "date": "2026-04-23", "title": "Asif / Ben / Modi Weekly Zoom", "context": "Upcoming (this Thu)" },
+        { "date": "2026-04-21", "title": "Asif / Ben / Modi Weekly Zoom", "context": "Upcoming (next Tue)" },
+        { "date": "2026-03-19", "title": "Asif / Ben / Modi Weekly Zoom", "context": "Last one before OOO" }
+      ],
+      "cadence": "Weekly recurring (Tue + Thu)"
+    },
+    "Jeff Sanders": {
+      "type": "Advisor",
+      "notes": "External advisor. Dials in directly to Asif's cell (646-417-1292).",
+      "contacts": [
+        { "name": "Jeff Sanders", "title": "Advisor", "email": "—" }
+      ],
+      "history": [
+        { "date": "2026-03-21", "title": "Tel Call: Jeff Sanders and Asif", "context": "Phone call" }
+      ],
+      "cadence": "Episodic"
+    },
+    "Moelis": {
+      "type": "Finance",
+      "notes": "Strategic advisory. Recent on-site at MRC.",
+      "contacts": [
+        { "name": "Carlos Jimenez", "title": "—", "email": "—" },
+        { "name": "Navid Mahmoodzadegan", "title": "Co-President", "email": "—" }
+      ],
+      "history": [
+        { "date": "2026-04-07", "title": "MTG at MRC | MRC x Moelis", "context": "In-person at MRC" }
+      ],
+      "cadence": "As-needed"
+    },
+    "Gau": {
+      "type": "Advisor",
+      "notes": "AI advisor. Part of MRC AI team initiative.",
+      "contacts": [{ "name": "Gau", "title": "AI Advisor", "email": "—" }],
+      "history": [
+        { "date": "2026-04-14", "title": "Gau / Asif", "context": "1:1 on AI initiatives" }
+      ],
+      "cadence": "Emerging"
+    },
+    "Tim Connors": {
+      "type": "Advisor",
+      "notes": "Candidate contact — relationship unclear. Needs attendee lookup.",
+      "contacts": [{ "name": "Tim Connors", "title": "—", "email": "—" }],
+      "history": [
+        { "date": "2026-04-13", "title": "ZOOM: Tim Connors / Asif", "context": "1:1" }
+      ],
+      "cadence": "One-off"
+    }
+  },
+  "eventDetails": {
+    "2026-04-21T13:00": {
+      "attendees": ["Ben Weber", "Modi Wiczyk"],
+      "location": "Zoom",
+      "entity": "Ben Weber",
+      "notes": "Recurring weekly strategic sync. Standing agenda: deal pipeline + advisor matters."
+    },
+    "2026-04-23T11:30": {
+      "attendees": ["Ben Weber", "Modi Wiczyk"],
+      "location": "Zoom",
+      "entity": "Ben Weber",
+      "notes": "Recurring weekly strategic sync."
+    },
+    "2026-04-24T13:00": {
+      "attendees": ["Modi Wiczyk", "Joowon Kim"],
+      "location": "Zoom",
+      "entity": null,
+      "notes": "Joowon Kim — candidate to add to entity map. First meeting."
+    },
+    "2026-04-22T14:00": {
+      "attendees": ["Juliet"],
+      "location": "—",
+      "entity": null,
+      "notes": "HOLD — Juliet / Asif. Hold time, not yet confirmed."
+    }
+  },
+  "teamView": {
+    "cohortLabel": "MRC Exec · Hybrid view",
+    "cohortSubtitle": "Asif · Scott · Modi · COC · Jenna · 5 execs",
+    "windowLabel": "Week of Apr 20 – Apr 24, 2026",
+    "heatmap": {
+      "people": [
+        { "name": "Asif Satchu",    "initials": "AS",  "role": "Co-Chair" },
+        { "name": "Scott Tenley",   "initials": "ST",  "role": "CEO" },
+        { "name": "Modi Wiczyk",    "initials": "MW",  "role": "Co-Chair" },
+        { "name": "Chris O'Connell","initials": "COC", "role": "CFO" },
+        { "name": "Jenna Santoianni","initials": "JS", "role": "President, TV" }
+      ],
+      "days": [
+        { "iso": "2026-04-20", "day": "Mon", "date": "20" },
+        { "iso": "2026-04-21", "day": "Tue", "date": "21" },
+        { "iso": "2026-04-22", "day": "Wed", "date": "22" },
+        { "iso": "2026-04-23", "day": "Thu", "date": "23" },
+        { "iso": "2026-04-24", "day": "Fri", "date": "24" }
+      ],
+      "grid": {
+        "AS":  [ 2.0, 3.5, 5.0, 1.0, 2.0 ],
+        "ST":  [ 3.5, 3.5, 1.5, 3.0, 0.0 ],
+        "MW":  [ 5.0, 5.0, 4.5, 4.0, 3.0 ],
+        "COC": [ 4.0, 5.0, 3.5, 5.0, 0.0 ],
+        "JS":  [ 3.5, 7.5, 4.0, 6.0, 3.5 ]
+      },
+      "dayHoursBusiness": 9.5
+    },
+    "coverage": {
+      "_notes": "Entities × people matrix. Real data for Asif; peer counts are limited-access estimates pending full calendar permissioning. Flag them accordingly.",
+      "entities": [
+        { "name": "Netflix",    "type": "Streamer", "AS": 0, "ST": 3, "MW": 1, "COC": 0, "JS": 4, "total": 8,  "singlePoint": false },
+        { "name": "Amazon",     "type": "Streamer", "AS": 0, "ST": 1, "MW": 0, "COC": 0, "JS": 3, "total": 4,  "singlePoint": false },
+        { "name": "Apple TV+",  "type": "Streamer", "AS": 0, "ST": 2, "MW": 0, "COC": 0, "JS": 2, "total": 4,  "singlePoint": false },
+        { "name": "CAA",        "type": "Agency",   "AS": 0, "ST": 2, "MW": 2, "COC": 0, "JS": 1, "total": 5,  "singlePoint": false },
+        { "name": "WME",        "type": "Agency",   "AS": 0, "ST": 1, "MW": 1, "COC": 0, "JS": 2, "total": 4,  "singlePoint": false },
+        { "name": "Lionsgate",  "type": "Studio",   "AS": 0, "ST": 0, "MW": 0, "COC": 0, "JS": 1, "total": 1,  "singlePoint": true,  "owner": "JS" },
+        { "name": "A24",        "type": "Studio",   "AS": 0, "ST": 1, "MW": 0, "COC": 0, "JS": 0, "total": 1,  "singlePoint": true,  "owner": "ST" },
+        { "name": "Moelis",     "type": "Finance",  "AS": 1, "ST": 0, "MW": 1, "COC": 2, "JS": 0, "total": 4,  "singlePoint": false },
+        { "name": "Grant Thornton","type": "Finance","AS": 2, "ST": 0, "MW": 0, "COC": 0, "JS": 0, "total": 2, "singlePoint": true,  "owner": "AS" },
+        { "name": "Ben Weber",  "type": "Advisor",  "AS": 3, "ST": 0, "MW": 3, "COC": 0, "JS": 0, "total": 3,  "singlePoint": false },
+        { "name": "HBO",        "type": "Streamer", "AS": 0, "ST": 0, "MW": 0, "COC": 0, "JS": 0, "total": 0,  "silent": true, "weeksSilent": 6 },
+        { "name": "Paramount",  "type": "Studio",   "AS": 0, "ST": 0, "MW": 0, "COC": 0, "JS": 0, "total": 0,  "silent": true, "weeksSilent": 4 },
+        { "name": "UTA",        "type": "Agency",   "AS": 0, "ST": 0, "MW": 0, "COC": 0, "JS": 0, "total": 0,  "silent": true, "weeksSilent": 8 }
+      ]
+    },
+    "glance": {
+      "teamExternalMtgs": 36,
+      "entitiesTouched": 10,
+      "singlePointRisks": 3,
+      "blindSpots": 3,
+      "notes": [
+        "Jenna's Tue is overloaded (7.5 hrs busy) — flag for review.",
+        "Lionsgate is JS-only. A24 is ST-only. Grant Thornton is AS-only.",
+        "HBO silent 6 weeks. Paramount 4 weeks. UTA 8 weeks.",
+        "Scott and COC both clear all Friday Apr 24 — coordinate high-focus work."
+      ]
+    },
+    "mix": {
+      "totalHoursTeam": 102,
+      "segments": [
+        { "type": "ext",  "label": "External", "hours": 27.5, "count": 36 },
+        { "type": "int",  "label": "Internal", "hours": 54.0, "count": 71 },
+        { "type": "pers", "label": "Personal", "hours": 14.5, "count": 22 },
+        { "type": "hold", "label": "Holds",    "hours": 6.0,  "count": 9 }
+      ]
+    }
+  },
+  "recentQueries": [
+    { "when": "Apr 16 · 5:32pm", "summary": "Avails · Thu Apr 23 · exec team", "tag": "avails" },
+    { "when": "Apr 16 · 5:20pm", "summary": "Discover · Asif · last 90 days", "tag": "discover" }
+  ]
+}
+</script>
+
+<script>
+/* ───────────────────────────────────────────── */
+/* Load data                                      */
+/* ───────────────────────────────────────────── */
+const data = JSON.parse(document.getElementById('data').textContent);
+
+const TYPE_COLORS = {
+  'Streamer':    '#2d4a8b',
+  'Studio':      '#b8862c',
+  'Agency':      '#8b5cf6',
+  'Distributor': '#fb923c',
+  'Finance':     '#6366f1',
+  'Advisor':     '#5c6b47',
+  'Data':        '#64748b',
+  'Network':     '#0d6efd',
+  'Other':       '#475569'
+};
+
+/* ───────────────────────────────────────────── */
+/* Header                                         */
+/* ───────────────────────────────────────────── */
+document.getElementById('subject-name').textContent = data.meta.subject;
+document.getElementById('subject-subtitle').textContent = data.meta.subjectLabel || 'External intelligence';
+const genDate = new Date(data.meta.generatedAt);
+document.getElementById('timestamp').textContent =
+  'Refreshed ' + genDate.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+document.getElementById('window-label').textContent = data.meta.window;
+
+/* ───────────────────────────────────────────── */
+/* At a glance                                   */
+/* ───────────────────────────────────────────── */
+const glanceEl = document.getElementById('glance-stats');
+const stats = [
+  { label: 'External meetings', val: data.glance.externalMtgs },
+  { label: 'Entities touched',  val: data.glance.entities },
+  { label: 'New contacts',      val: data.glance.newContacts },
+  { label: 'Blind spots',       val: data.glance.blindSpots }
+];
+glanceEl.innerHTML = stats.map(s =>
+  `<div class="stat"><span class="label">${s.label}</span><span class="val">${s.val}</span></div>`
+).join('');
+document.getElementById('glance-notes').innerHTML =
+  data.glance.notes.map(n => `<div>— ${n}</div>`).join('');
+
+/* ───────────────────────────────────────────── */
+/* Relationship map (D3 force graph)              */
+/* ───────────────────────────────────────────── */
+const radarEl = document.getElementById('radar');
+const width = radarEl.clientWidth;
+const height = 560;
+
+// Center node: MRC / exec
+const centerNode = { id: data.meta.subject, isCenter: true, type: 'Center' };
+const allNodes = [centerNode, ...data.relationships.nodes];
+const links = data.relationships.nodes.map(n => ({
+  source: centerNode.id,
+  target: n.id,
+  strength: n.meetings
+}));
+
+const svg = d3.select('#radar').append('svg')
+  .attr('width', width)
+  .attr('height', height);
+
+const simulation = d3.forceSimulation(allNodes)
+  .force('link', d3.forceLink(links).id(d => d.id).distance(140))
+  .force('charge', d3.forceManyBody().strength(-700))
+  .force('center', d3.forceCenter(width / 2, height / 2))
+  .force('collide', d3.forceCollide().radius(d => (d.isCenter ? 60 : Math.max(26, 18 + d.meetings * 3))));
+
+const link = svg.append('g')
+  .attr('stroke', '#c4bfb4')
+  .attr('stroke-opacity', 0.6)
+  .selectAll('line')
+  .data(links)
+  .enter().append('line')
+  .attr('stroke-width', d => Math.min(4, 0.8 + d.strength * 0.4));
+
+const node = svg.append('g')
+  .selectAll('circle')
+  .data(allNodes)
+  .enter().append('circle')
+  .attr('r', d => d.isCenter ? 44 : Math.max(16, 12 + d.meetings * 3))
+  .attr('fill', d => d.isCenter ? '#1a1a1a' : (TYPE_COLORS[d.type] || '#475569'))
+  .attr('fill-opacity', d => d.isCenter ? 1 : 0.15)
+  .attr('stroke', d => d.isCenter ? '#1a1a1a' : (TYPE_COLORS[d.type] || '#475569'))
+  .attr('stroke-width', 2)
+  .attr('data-center', d => d.isCenter ? 'true' : null)
+  .on('click', (e, d) => { if (!d.isCenter) openEntityDrawer(d.id); })
+  .call(drag(simulation));
+
+const labels = svg.append('g')
+  .selectAll('text')
+  .data(allNodes)
+  .enter().append('text')
+  .attr('class', 'node-label')
+  .attr('fill', d => d.isCenter ? '#faf8f4' : '#1a1a1a')
+  .attr('font-size', d => d.isCenter ? '15px' : '11px')
+  .attr('font-weight', d => d.isCenter ? '700' : '600')
+  .attr('dominant-baseline', 'middle')
+  .text(d => d.isCenter ? 'ASIF' : d.id);
+
+const countLabels = svg.append('g')
+  .selectAll('text')
+  .data(allNodes.filter(n => !n.isCenter))
+  .enter().append('text')
+  .attr('class', 'node-count')
+  .text(d => d.meetings + (d.meetings === 1 ? ' mtg' : ' mtgs'));
+
+simulation.on('tick', () => {
+  // Keep nodes inside viewport
+  allNodes.forEach(d => {
+    const r = d.isCenter ? 55 : Math.max(26, 18 + d.meetings * 3);
+    d.x = Math.max(r, Math.min(width - r, d.x));
+    d.y = Math.max(r, Math.min(height - r, d.y));
+  });
+  link
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  node.attr('cx', d => d.x).attr('cy', d => d.y);
+  labels.attr('x', d => d.x).attr('y', d => d.isCenter ? d.y : d.y - 4);
+  countLabels.attr('x', d => d.x).attr('y', d => d.y + 13);
+});
+
+function drag(sim) {
+  return d3.drag()
+    .on('start', (e,d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on('drag', (e,d) => { d.fx = e.x; d.fy = e.y; })
+    .on('end', (e,d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; });
+}
+
+// Legend
+const types = [...new Set(data.relationships.nodes.map(n => n.type))];
+document.getElementById('legend').innerHTML =
+  types.map(t => `<div><span class="legend-dot" style="background:${TYPE_COLORS[t]||'#475569'}"></span>${t}</div>`).join('');
+
+// Silent list
+const silentEl = document.getElementById('silent-list');
+if (data.relationships.silent.length) {
+  silentEl.innerHTML = '<h3 style="margin-top:0">Silent relationships</h3>' +
+    data.relationships.silent.map(s =>
+      `<div class="item"><span>${s.entity}</span><span class="weeks">silent ${s.weeksSilent} wks · last ${s.lastMet}</span></div>`
+    ).join('');
+} else {
+  silentEl.innerHTML = '<h3 style="margin-top:0">Silent relationships</h3><div class="item"><em>None flagged</em></div>';
+}
+
+/* ───────────────────────────────────────────── */
+/* Week ahead — timeline calendar view           */
+/* ───────────────────────────────────────────── */
+function renderWeekCal() {
+  const CAL_START = 8.5;   // 8:30am
+  const CAL_END   = 18;    // 6:00pm
+  const CAL_HOURS = CAL_END - CAL_START;
+  const CAL_PX    = 40;    // px per hour
+  const CAL_H     = CAL_HOURS * CAL_PX;
+
+  const days = data.weekAhead.days;
+
+  // Build header
+  const headerHtml = `
+    <div class="week-cal-header">
+      <div class="day-header"></div>
+      ${days.map(d => `
+        <div class="day-header">
+          <div class="day-label">${d.day}</div>
+          <div class="day-date">${d.date.split(' ')[1]}</div>
+          <div class="day-count">${d.events.length} events</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // All-day row
+  const anyAllDay = days.some(d => d.allDay && d.allDay.length);
+  const allDayHtml = anyAllDay ? `
+    <div class="week-cal-all-day">
+      <div class="slot axis">all day</div>
+      ${days.map(d => `
+        <div class="slot">${(d.allDay || []).join(' · ')}</div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  // Body
+  const timeAxis = [];
+  for (let h = Math.ceil(CAL_START); h <= CAL_END; h++) {
+    const top = (h - CAL_START) * CAL_PX;
+    const label = h === 12 ? 'noon' : (h > 12 ? (h-12) + 'p' : h + 'a');
+    timeAxis.push(`<span class="tick" style="top: ${top}px;">${label}</span>`);
+  }
+
+  function timeToPx(t) {
+    const [hh, mm] = t.split(':').map(Number);
+    const hours = hh + mm/60;
+    return (hours - CAL_START) * CAL_PX;
+  }
+
+  function renderEvents(events) {
+    // Sort and lay out side-by-side for overlaps (simple: just stack)
+    return events.map(e => {
+      const top = timeToPx(e.start);
+      const bottom = timeToPx(e.end);
+      const height = Math.max(14, bottom - top - 2);
+      if (top > CAL_H || bottom < 0) return '';
+      return `
+        <div class="evt ${e.type}" style="top:${top}px; height:${height}px;">
+          <div class="evt-time">${fmtTime(e.start)} – ${fmtTime(e.end)}</div>
+          <div class="evt-title">${e.title}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Lunch overlay (1:00-2:30) in every day column
+  const lunchTop = timeToPx('13:00');
+  const lunchHeight = timeToPx('14:30') - lunchTop;
+
+  const bodyHtml = `
+    <div class="week-cal-body" style="height: ${CAL_H}px;">
+      <div class="time-axis">${timeAxis.join('')}</div>
+      ${days.map(d => `
+        <div class="day-col" data-iso="${d.iso}">
+          ${Array.from({length: Math.ceil(CAL_HOURS)}).map((_,i) =>
+            `<div class="hour-line" style="top: ${(i+1) * CAL_PX}px;"></div>`
+          ).join('')}
+          <div class="evt lunch" style="top:${lunchTop}px; height:${lunchHeight}px;">lunch</div>
+          ${renderEvents(d.events)}
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  document.getElementById('week-cal').innerHTML = headerHtml + allDayHtml + bodyHtml;
+}
+
+function fmtTime(t) {
+  const [hh, mm] = t.split(':').map(Number);
+  const h12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+  const ampm = hh >= 12 ? 'p' : 'a';
+  return mm === 0 ? `${h12}${ampm}` : `${h12}:${String(mm).padStart(2,'0')}${ampm}`;
+}
+
+renderWeekCal();
+
+/* Wire up event click handlers after render */
+function wireEventClicks() {
+  document.querySelectorAll('.week-cal-body .evt:not(.lunch)').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const rect = el.getBoundingClientRect();
+      const title = el.querySelector('.evt-title').textContent;
+      const timeRange = el.querySelector('.evt-time').textContent;
+      const type = [...el.classList].find(c => ['ext','int','pers','hold'].includes(c));
+      // Figure out iso date from parent day-col
+      const col = el.closest('.day-col');
+      const iso = col ? col.dataset.iso : null;
+      // Find event in data to get the start time for details lookup
+      const dayData = data.weekAhead.days.find(d => d.iso === iso);
+      const match = dayData ? dayData.events.find(ev => ev.title === title) : null;
+      const key = iso && match ? iso + 'T' + match.start : null;
+      const details = key ? data.eventDetails[key] : null;
+      openEventPopover(el, title, timeRange, type, details, iso, match);
+    });
+  });
+}
+wireEventClicks();
+
+/* Close popover on outside click */
+document.addEventListener('click', (e) => {
+  const pop = document.getElementById('popover');
+  if (pop.classList.contains('open') && !pop.contains(e.target)) {
+    pop.classList.remove('open');
+  }
+});
+
+/* ───────────────────────────────────────────── */
+/* New contacts                                  */
+/* ───────────────────────────────────────────── */
+const contactsEl = document.getElementById('new-contacts');
+contactsEl.innerHTML = data.relationships.newCandidates.map(c => `
+  <div class="row">
+    <div>
+      <strong>${c.name}</strong><br>
+      <span style="font-family: 'Inter', sans-serif; font-size: 0.78rem; color: var(--muted);">
+        Suggested type: ${c.suggestedType}
+      </span>
+    </div>
+    <div class="count">${c.meetings} mtg${c.meetings===1?'':'s'}</div>
+    <div class="actions">
+      ${c.status === 'tagged'
+        ? '<span class="tagged">✓ Tagged</span>'
+        : '<button onclick="tagContact(\'' + c.name + '\')">Add to map</button><button onclick="skipContact(\'' + c.name + '\')">Skip</button>'
+      }
+    </div>
+  </div>
+`).join('');
+
+function tagContact(name) {
+  alert('To add "' + name + '" to your entity map, ask Claude:\n\n"Add ' + name + ' to my entity map"');
+}
+function skipContact(name) {
+  if (confirm('Skip "' + name + '" for now?')) {
+    // In a full integration, this would update state
+    alert('Marked skipped. Ask Claude to persist: "skip ' + name + ' in candidates"');
+  }
+}
+
+/* ───────────────────────────────────────────── */
+/* Avails — main generator + people multiselect  */
+/* ───────────────────────────────────────────── */
+let selectedAvailsIso = (data.avails.days.find(d => d.selected) || data.avails.days[0]).iso;
+let selectedPeople = new Set(data.avails.people); // default: all selected
+
+function renderAvailsPeoplePicker() {
+  const pickerEl = document.getElementById('avails-people-picker');
+  const allPeople = data.avails.people;
+  pickerEl.innerHTML = `
+    <span class="label">Check avails for:</span>
+    ${allPeople.map(p => `
+      <div class="person-chip ${selectedPeople.has(p) ? 'selected' : ''}" data-person="${p}">${p}</div>
+    `).join('')}
+    <div class="quick-actions">
+      <button data-action="all">All</button>
+      <button data-action="clear">Clear</button>
+    </div>
+  `;
+  pickerEl.querySelectorAll('.person-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const p = chip.dataset.person;
+      if (selectedPeople.has(p)) selectedPeople.delete(p);
+      else selectedPeople.add(p);
+      if (selectedPeople.size === 0) selectedPeople.add(p); // never allow 0
+      renderAvailsPeoplePicker();
+      renderAvailsGenerator();
+    });
+  });
+  pickerEl.querySelectorAll('.quick-actions button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.action === 'all') selectedPeople = new Set(allPeople);
+      else if (btn.dataset.action === 'clear') selectedPeople = new Set([allPeople[0]]);
+      renderAvailsPeoplePicker();
+      renderAvailsGenerator();
+    });
+  });
+}
+
+function renderAvailsTabs() {
+  const tabsEl = document.getElementById('avails-tabs');
+  tabsEl.innerHTML = data.avails.days.map(d => `
+    <button data-iso="${d.iso}" class="${d.iso === selectedAvailsIso ? 'active' : ''}">
+      ${d.date}
+    </button>
+  `).join('');
+  tabsEl.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedAvailsIso = btn.dataset.iso;
+      renderAvailsTabs();
+      renderAvailsGenerator();
+    });
+  });
+}
+
+// Extract who's missing from a window's missing entry. Handles "JS", "Jenna out", "AS (tent)" etc.
+function extractMissingInitials(missing) {
+  // missing can be array of strings like ["JS"], ["Jenna"], ["AS (tent)"]
+  const out = new Set();
+  (missing || []).forEach(m => {
+    const match = m.match(/^([A-Z]{2,4})\b/);
+    if (match) out.add(match[1]);
+    else {
+      // Fallback: match first word
+      const firstWord = m.split(/[\s(]/)[0];
+      if (firstWord) out.add(firstWord);
+    }
+  });
+  return out;
+}
+
+function renderAvailsGenerator() {
+  const d = data.avails.days.find(x => x.iso === selectedAvailsIso);
+  const allPeople = data.avails.people;
+  const genEl = document.getElementById('avails-generator');
+  const selectedSize = selectedPeople.size;
+
+  // Re-categorize windows based on the CURRENT multi-select
+  function categorize(windows, wasFullyClear) {
+    return windows.map(w => {
+      const missingOrig = extractMissingInitials(w.missing || []);
+      // How many of the SELECTED people are in the missing set?
+      const selMissing = [...selectedPeople].filter(p => missingOrig.has(p));
+      const clearCount = selectedSize - selMissing.length;
+      return {
+        ...w,
+        _type: clearCount === selectedSize ? 'full' : 'partial',
+        _clearCount: clearCount,
+        _selMissing: selMissing,
+        _originalMissing: [...missingOrig]
+      };
+    });
+  }
+
+  const combined = [
+    ...categorize(d.fullClear, true),
+    ...categorize(d.nearClear, false)
+  ];
+
+  // Sort: fully clear first, then by clearness
+  combined.sort((a, b) => {
+    if (a._type !== b._type) return a._type === 'full' ? -1 : 1;
+    return b._clearCount - a._clearCount;
+  });
+
+  const rowsHtml = combined.length ? combined.map(w => {
+    const peopleChips = allPeople.map(p => {
+      const isSelected = selectedPeople.has(p);
+      const isOut = w._selMissing.includes(p);
+      const wasTent = (w.missing || []).some(m => m.includes(p + ' (tent)'));
+      if (!isSelected) return `<span class="chip" style="opacity: 0.25;">${p}</span>`;
+      if (wasTent) return `<span class="chip tent">${p}</span>`;
+      if (isOut) return `<span class="chip out">${p}</span>`;
+      return `<span class="chip">${p}</span>`;
+    }).join('');
+    const statusText = w._type === 'full'
+      ? 'ALL CLEAR'
+      : `${w._clearCount}/${selectedSize} clear`;
+    return `
+      <div class="avails-row ${w._type === 'full' ? 'full-clear' : 'near-clear'}">
+        <div>
+          <div class="time">${w.start} – ${w.end}</div>
+          <div style="font-family: 'Inter', sans-serif; font-size: 0.72rem; color: var(--muted); margin-top: 2px;">
+            ${statusText}${w.note ? ' · ' + w.note : ''}
+          </div>
+        </div>
+        <div class="people">${peopleChips}</div>
+      </div>
+    `;
+  }).join('') : '<div style="color: var(--muted); font-style: italic; padding: 20px 0;">No overlapping windows found in this day.</div>';
+
+  genEl.innerHTML = rowsHtml;
+
+  // Summary reflects the filtered selection
+  const selNames = [...selectedPeople].join(', ');
+  const fullClearCount = combined.filter(w => w._type === 'full').length;
+  const summary = fullClearCount > 0
+    ? `${fullClearCount} window${fullClearCount === 1 ? '' : 's'} where all of (${selNames}) are clear.`
+    : `No windows where all of (${selNames}) are clear. Showing partial-coverage windows.`;
+  document.getElementById('avails-summary').textContent = d.summary + ' · ' + summary;
+}
+
+renderAvailsPeoplePicker();
+renderAvailsTabs();
+renderAvailsGenerator();
+
+/* ───────────────────────────────────────────── */
+/* Scheduler                                     */
+/* ───────────────────────────────────────────── */
+const STATUS_META = {
+  'awaiting-external-confirm': { label: 'Ext', class: 'status-ext' },
+  'awaiting-internal-confirm': { label: 'Int', class: 'status-int' },
+  'scheduled':                  { label: 'Set', class: 'status-sched' },
+  'stale':                      { label: 'Nudge', class: 'status-stale' },
+  'rescheduling':               { label: 'Move', class: 'status-int' },
+  'declined':                   { label: 'Declined', class: 'status-stale' }
+};
+
+const schedulerEl = document.getElementById('scheduler-list');
+if (!data.scheduler || !data.scheduler.length) {
+  schedulerEl.innerHTML = '<div class="empty">No open scheduling threads.</div>';
+} else {
+  schedulerEl.innerHTML = data.scheduler.map(s => {
+    const meta = STATUS_META[s.status] || { label: s.status, class: '' };
+    return `
+      <div class="item">
+        <div class="subject">${s.subject}</div>
+        <div class="counterparty">${s.counterparty}</div>
+        ${s.proposed ? `<div class="counterparty" style="margin-top:2px;"><strong>${s.proposed}</strong></div>` : ''}
+        <div class="status-row">
+          <span class="status-badge ${meta.class}">${meta.label}</span>
+          <span class="timing">${s.age || ''}</span>
+        </div>
+        ${s.note ? `<div class="note">${s.note}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+/* ───────────────────────────────────────────── */
+/* Tracked items                                 */
+/* ───────────────────────────────────────────── */
+const trackedEl = document.getElementById('tracked-list');
+trackedEl.innerHTML = data.trackedItems.map(t => `
+  <div class="item ${t.done ? 'done' : ''}">
+    <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTracked('${t.id}')">
+    <span class="text">${t.text}</span>
+  </div>
+`).join('');
+
+function toggleTracked(id) {
+  const item = data.trackedItems.find(t => t.id === id);
+  if (item) item.done = !item.done;
+  // In a full integration, this would write back to state
+  // For now, just re-render
+  const trackedEl = document.getElementById('tracked-list');
+  trackedEl.innerHTML = data.trackedItems.map(t => `
+    <div class="item ${t.done ? 'done' : ''}">
+      <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTracked('${t.id}')">
+      <span class="text">${t.text}</span>
+    </div>
+  `).join('');
+}
+
+/* ───────────────────────────────────────────── */
+/* Recent queries                                */
+/* ───────────────────────────────────────────── */
+const queriesEl = document.getElementById('queries-list');
+queriesEl.innerHTML = data.recentQueries.map(q => `
+  <div class="q">
+    <div class="when">${q.when} · ${q.tag}</div>
+    <div class="summary">${q.summary}</div>
+  </div>
+`).join('');
+
+/* ───────────────────────────────────────────── */
+/* View toggle (Individual / Team)               */
+/* ───────────────────────────────────────────── */
+let currentView = 'individual';
+
+document.querySelectorAll('.view-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.view;
+    if (view === currentView) return;
+    currentView = view;
+    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.body.classList.toggle('team-mode', view === 'team');
+
+    if (view === 'team') {
+      renderTeamView();
+    } else {
+      renderIndividualView();
+    }
+  });
+});
+
+function renderTeamView() {
+  // Update header
+  document.getElementById('subject-name').textContent = 'MRC Exec Team';
+  document.getElementById('subject-subtitle').textContent = data.teamView.cohortSubtitle;
+  document.getElementById('window-label').textContent = data.teamView.windowLabel;
+  document.getElementById('radar-title').textContent = 'Aggregate Relationship Map (Team)';
+
+  // Update At a Glance
+  const tg = data.teamView.glance;
+  document.getElementById('glance-stats').innerHTML = [
+    { label: 'Team external mtgs', val: tg.teamExternalMtgs },
+    { label: 'Entities touched',   val: tg.entitiesTouched },
+    { label: 'Single-point risks', val: tg.singlePointRisks },
+    { label: 'Blind spots',        val: tg.blindSpots }
+  ].map(s => `<div class="stat"><span class="label">${s.label}</span><span class="val">${s.val}</span></div>`).join('');
+  document.getElementById('glance-notes').innerHTML =
+    tg.notes.map(n => `<div>— ${n}</div>`).join('');
+
+  // Update Mix
+  renderMixWith(data.teamView.mix, 'Team · Last 7 days');
+
+  // Render Team Heatmap
+  renderHeatmap();
+
+  // Render Coverage Matrix
+  renderCoverageMatrix();
+}
+
+function renderIndividualView() {
+  document.getElementById('subject-name').textContent = data.meta.subject;
+  document.getElementById('subject-subtitle').textContent = data.meta.subjectLabel || 'External intelligence';
+  document.getElementById('window-label').textContent = data.meta.window;
+  document.getElementById('radar-title').textContent = 'The Relationship Map';
+
+  // Reset At a Glance
+  const stats = [
+    { label: 'External meetings', val: data.glance.externalMtgs },
+    { label: 'Entities touched',  val: data.glance.entities },
+    { label: 'New contacts',      val: data.glance.newContacts },
+    { label: 'Blind spots',       val: data.glance.blindSpots }
+  ];
+  document.getElementById('glance-stats').innerHTML = stats.map(s =>
+    `<div class="stat"><span class="label">${s.label}</span><span class="val">${s.val}</span></div>`
+  ).join('');
+  document.getElementById('glance-notes').innerHTML =
+    data.glance.notes.map(n => `<div>— ${n}</div>`).join('');
+
+  renderMixWith(data.mix, data.mix.windowLabel);
+}
+
+function renderMixWith(mix, label) {
+  document.getElementById('mix-window').textContent = label + ' · ' + (mix.totalHours || mix.totalHoursTeam) + ' hrs total';
+  const total = mix.segments.reduce((s, seg) => s + seg.hours, 0);
+  const barHtml = mix.segments.map(seg => {
+    const pct = (seg.hours / total) * 100;
+    return `<div class="seg ${seg.type}" style="width: ${pct}%" title="${seg.label}: ${seg.hours} hrs"></div>`;
+  }).join('');
+  document.getElementById('mix-bar').innerHTML = barHtml;
+  const legendHtml = mix.segments.map(seg => {
+    const pct = Math.round((seg.hours / total) * 100);
+    const segColor = { ext: 'var(--amber)', int: 'var(--navy)', pers: '#a89f82', hold: '#c4bfb4' }[seg.type];
+    return `
+      <div class="row">
+        <div><span class="swatch" style="background: ${segColor}"></span>${seg.label}</div>
+        <div class="pct">${seg.hours}h · ${pct}%</div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('mix-legend').innerHTML = legendHtml;
+}
+
+/* Team Heatmap */
+function renderHeatmap() {
+  const hm = data.teamView.heatmap;
+  const maxHrs = hm.dayHoursBusiness;
+
+  function intensityColor(h) {
+    const ratio = Math.min(1, h / maxHrs);
+    // Cream to navy gradient
+    const r = Math.round(250 - (250 - 45) * ratio);
+    const g = Math.round(248 - (248 - 74) * ratio);
+    const b = Math.round(244 - (244 - 139) * ratio);
+    return `rgb(${r},${g},${b})`;
+  }
+  function textColor(h) {
+    return (h / maxHrs) > 0.55 ? '#faf8f4' : '#1a1a1a';
+  }
+
+  let html = '<div class="team-heatmap-grid">';
+  html += '<div class="th"></div>';
+  hm.days.forEach(d => {
+    html += `<div class="th"><div>${d.day}</div><div class="date">${d.date}</div></div>`;
+  });
+
+  hm.people.forEach(p => {
+    html += '<div class="person-row" style="display: contents;">';
+    html += `<div class="person"><div class="pname">${p.name}</div><div class="prole">${p.role}</div></div>`;
+    const hours = hm.grid[p.initials] || [];
+    hours.forEach(h => {
+      html += `<div class="cell" style="background: ${intensityColor(h)}; color: ${textColor(h)};">${h}h</div>`;
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += `
+    <div class="team-heatmap-legend">
+      <span><span class="lbox" style="background: ${intensityColor(0)}"></span>Clear</span>
+      <span><span class="lbox" style="background: ${intensityColor(3)}"></span>Light</span>
+      <span><span class="lbox" style="background: ${intensityColor(6)}"></span>Packed</span>
+      <span><span class="lbox" style="background: ${intensityColor(9)}"></span>Back-to-back</span>
+    </div>
+  `;
+
+  document.getElementById('team-heatmap').innerHTML = html;
+}
+
+/* Team Coverage Matrix */
+function renderCoverageMatrix() {
+  const cov = data.teamView.coverage;
+  const people = data.teamView.heatmap.people;
+
+  let html = '<table><thead><tr>';
+  html += '<th class="entity-col">Entity</th>';
+  people.forEach(p => { html += `<th>${p.initials}</th>`; });
+  html += '<th>Total</th>';
+  html += '</tr></thead><tbody>';
+
+  cov.entities.forEach(e => {
+    const rowClass = e.silent ? 'silent' : (e.singlePoint ? 'single-point' : '');
+    html += `<tr class="${rowClass}">`;
+    html += `<td class="entity-name">${e.name}<span class="type">${e.type}`;
+    if (e.singlePoint) html += `<span class="risk-tag">Single: ${e.owner}</span>`;
+    if (e.silent) html += `<span class="silent-tag">Silent ${e.weeksSilent}w</span>`;
+    html += `</span></td>`;
+    people.forEach(p => {
+      const v = e[p.initials] || 0;
+      html += `<td class="${v === 0 ? 'count-0' : ''}">${v}</td>`;
+    });
+    html += `<td class="total">${e.total}</td>`;
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('coverage-matrix').innerHTML = html;
+}
+
+// Initial render (Individual mode is default)
+renderIndividualView();
+renderHeatmap();
+renderCoverageMatrix();
+
+/* ───────────────────────────────────────────── */
+/* Main tab navigation                           */
+/* ───────────────────────────────────────────── */
+function switchTab(tabName) {
+  // Update tab buttons
+  document.querySelectorAll('.main-tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabName);
+  });
+  // Update panels
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.dataset.panel === tabName);
+  });
+  // Persist selection
+  try { localStorage.setItem('calint.activeTab', tabName); } catch (e) {}
+}
+
+document.querySelectorAll('.main-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// Restore last-used tab from localStorage, default to "week" (individual) or "team" (team mode)
+(function initTab() {
+  let saved;
+  try { saved = localStorage.getItem('calint.activeTab'); } catch (e) {}
+  const defaultTab = data.meta.role === 'ea' ? 'week' : 'week';
+  const tab = saved || defaultTab;
+  switchTab(tab);
+})();
+
+// When toggling Individual/Team, fix up visible tab if needed
+const origRenderTeamView = renderTeamView;
+renderTeamView = function() {
+  origRenderTeamView();
+  // If on "week" tab (individual only), switch to "team"
+  const activeTab = document.querySelector('.main-tabs button.active');
+  if (activeTab && activeTab.dataset.tab === 'week') switchTab('team');
+};
+const origRenderIndividualView = renderIndividualView;
+renderIndividualView = function() {
+  origRenderIndividualView();
+  // If on "team" tab (team only), switch to "week"
+  const activeTab = document.querySelector('.main-tabs button.active');
+  if (activeTab && activeTab.dataset.tab === 'team') switchTab('week');
+};
+
+// Initial individual-mode Mix render (renderMixWith defined below in view toggle block)
+// Deferred — called by renderIndividualView / renderTeamView which handle both modes
+
+/* ───────────────────────────────────────────── */
+/* Entity drawer (click a radar node)            */
+/* ───────────────────────────────────────────── */
+function openEntityDrawer(entityName) {
+  const detail = data.entityDetails[entityName];
+  const node = data.relationships.nodes.find(n => n.id === entityName);
+  const contentEl = document.getElementById('drawer-content');
+
+  if (!detail) {
+    contentEl.innerHTML = `
+      <h3>${entityName}</h3>
+      <p class="notes">No detail record found for this entity. Ask Claude to pull history for ${entityName}.</p>
+    `;
+  } else {
+    const typeColor = TYPE_COLORS[detail.type] || '#475569';
+    contentEl.innerHTML = `
+      <h3>${entityName}</h3>
+      <div class="meta-row">
+        <span class="chip" style="border-color: ${typeColor}; color: ${typeColor};">${detail.type}</span>
+        ${node ? `<span class="chip">${node.meetings} mtg${node.meetings===1?'':'s'}</span>` : ''}
+        ${node ? `<span class="chip">Last met ${node.lastMet}</span>` : ''}
+        <span class="chip">${detail.cadence}</span>
+      </div>
+
+      ${detail.notes ? `<div class="notes">${detail.notes}</div>` : ''}
+
+      <div class="section-title">Contacts</div>
+      ${detail.contacts.map(c => `
+        <div class="contact-row">
+          <strong>${c.name}</strong>
+          ${c.title && c.title !== '—' ? ` · <span style="color: var(--muted); font-style: italic;">${c.title}</span>` : ''}
+          ${c.email && c.email !== '—' ? `<div style="font-family: 'Inter', sans-serif; font-size: 0.78rem; color: var(--muted); margin-top: 2px;">${c.email}</div>` : ''}
+        </div>
+      `).join('')}
+
+      <div class="section-title">Meeting History</div>
+      ${detail.history.map(h => `
+        <div class="history-row">
+          <div class="date">${h.date}</div>
+          <div style="margin-top: 3px;"><strong>${h.title}</strong></div>
+          ${h.context ? `<div style="color: var(--muted); font-size: 0.82rem; margin-top: 2px;">${h.context}</div>` : ''}
+        </div>
+      `).join('')}
+
+      <div class="drawer-actions">
+        <button onclick="askClaude('Draft outreach to ${entityName}')">Draft outreach</button>
+        <button class="secondary" onclick="askClaude('Show me full meeting history for ${entityName}')">Full history</button>
+      </div>
+    `;
+  }
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+function askClaude(prompt) {
+  alert('Copy this into your Claude chat:\n\n"' + prompt + '"');
+}
+
+/* ───────────────────────────────────────────── */
+/* Event popover (click a week event)            */
+/* ───────────────────────────────────────────── */
+function openEventPopover(anchorEl, title, timeRange, type, details, iso, evtData) {
+  const pop = document.getElementById('popover');
+  const content = document.getElementById('popover-content');
+  const typeLabel = { ext: 'External', int: 'Internal', pers: 'Personal', hold: 'Hold' }[type] || '';
+  const dayName = data.weekAhead.days.find(d => d.iso === iso)?.day || '';
+
+  let attendeesHtml = '';
+  let entityHtml = '';
+  let notesHtml = '';
+  if (details) {
+    if (details.attendees && details.attendees.length) {
+      attendeesHtml = `<div class="pop-row"><span class="label">Attendees</span><span>${details.attendees.join(', ')}</span></div>`;
+    }
+    if (details.location) {
+      attendeesHtml += `<div class="pop-row"><span class="label">Location</span><span>${details.location}</span></div>`;
+    }
+    if (details.entity) {
+      entityHtml = `<div class="pop-row"><span class="label">Entity</span><span><a href="#" onclick="event.preventDefault(); closePopover(); openEntityDrawer('${details.entity}')" style="color: var(--navy); text-decoration: none; font-weight: 600;">${details.entity} →</a></span></div>`;
+    }
+    if (details.notes) {
+      notesHtml = `<div class="pop-row"><span class="label">Notes</span><span style="font-style: italic; color: var(--muted);">${details.notes}</span></div>`;
+    }
+  } else {
+    notesHtml = `<div class="pop-row" style="padding-top: 8px;"><span style="color: var(--muted); font-style: italic; font-size: 0.8rem;">No attendee detail loaded. Ask Claude for prep.</span></div>`;
+  }
+
+  content.innerHTML = `
+    <div class="pop-title">${title}</div>
+    <div class="pop-time">${dayName ? dayName + ' · ' : ''}${timeRange}${typeLabel ? ' · ' + typeLabel : ''}</div>
+    ${attendeesHtml}
+    ${entityHtml}
+    ${notesHtml}
+    <div class="pop-actions">
+      <button class="primary" onclick="askClaude('Prep me for the ${title} meeting on ${iso}'); closePopover();">Prep now</button>
+      <button onclick="closePopover()">Close</button>
+    </div>
+  `;
+
+  // Position popover next to the clicked event
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 320;
+  let left = rect.right + 10;
+  if (left + popW > window.innerWidth - 20) {
+    left = rect.left - popW - 10;
+  }
+  let top = rect.top;
+  if (top + 240 > window.innerHeight) {
+    top = window.innerHeight - 260;
+  }
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+  pop.classList.add('open');
+}
+function closePopover() {
+  document.getElementById('popover').classList.remove('open');
+}
+
+/* Footer */
+document.getElementById('footer-meta').textContent =
+  `Generated ${new Date(data.meta.generatedAt).toLocaleString()} · role: ${data.meta.role}`;
+</script>
+
+</body>
+</html>

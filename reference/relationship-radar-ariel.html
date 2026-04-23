@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Preparation & Relationship Radar Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', 'Garamond', serif;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            padding: 30px;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        h1 { color: #1a1a1a; margin-bottom: 8px; font-size: 1.8em; font-weight: bold; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .search-bar input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95em;
+        }
+        .search-bar button {
+            padding: 12px 24px;
+            background: #4a7c9e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .search-bar button:hover { background: #36596e; }
+        .search-bar button.clear { background: #999; }
+        .search-bar button.clear:hover { background: #777; }
+
+        .tabs {
+            display: flex;
+            gap: 20px;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #999;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button.active {
+            color: #1a1a1a;
+            border-bottom-color: #4a7c9e;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        #graph {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            height: 700px;
+            position: relative;
+        }
+        .panel {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        .panel-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #999;
+            text-align: center;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 1.5em;
+            cursor: pointer;
+            float: right;
+        }
+        .info-item {
+            padding: 12px;
+            background: #f9f7f5;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #4a7c9e;
+            font-size: 0.9em;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-bottom: 8px;
+        }
+        .badge-internal {
+            background: #e8f4f8;
+            color: #2c5aa0;
+        }
+        .badge-external {
+            background: #f0e8f8;
+            color: #6b3fa0;
+        }
+        .badge-high-value {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .badge-medium-value {
+            background: #fff9e6;
+            color: #f57f17;
+        }
+
+        .digest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .digest-card {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .card-header {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #ddd;
+            color: #1a1a1a;
+        }
+        .card-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4a7c9e;
+            margin-bottom: 8px;
+        }
+        .card-detail {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.5;
+        }
+        .card-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+        .card-list li {
+            padding: 6px 0;
+            color: #333;
+            font-size: 0.9em;
+            border-bottom: 1px solid #eee;
+        }
+        .card-list li:last-child { border-bottom: none; }
+
+        .warning-card {
+            border-color: #d4a574;
+            background: #fff9f0;
+        }
+        .warning-card .card-header {
+            color: #c9915c;
+            border-bottom-color: #d4a574;
+        }
+        .warning-card .card-value { color: #c9915c; }
+
+        .success-card {
+            border-color: #7fa88c;
+            background: #f5faf8;
+        }
+        .success-card .card-header {
+            color: #5a8d6f;
+            border-bottom-color: #7fa88c;
+        }
+        .success-card .card-value { color: #5a8d6f; }
+
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .prep-section {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .prep-section h3 {
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            color: #1a1a1a;
+        }
+        .prep-question {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f9f7f5;
+            border-left: 3px solid #4a7c9e;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        .notes-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Georgia', serif;
+            font-size: 0.95em;
+            min-height: 120px;
+            resize: vertical;
+        }
+        .save-btn {
+            padding: 10px 20px;
+            background: #4a7c9e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        .save-btn:hover { background: #36596e; }
+
+        .value-classifier {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f9f7f5;
+            border-radius: 6px;
+            border-left: 3px solid #4a7c9e;
+        }
+        .value-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #f59e0b, #10b981);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+        .value-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: 3px solid #4a7c9e;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .value-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: 3px solid #4a7c9e;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .value-label {
+            margin-top: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .projects-section {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .project-item {
+            padding: 12px;
+            background: #f9f7f5;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #8b5cf6;
+        }
+        .project-name {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+        .project-role {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .attachments-section {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .attachment-item {
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+        .attachment-name {
+            flex: 1;
+            color: #1a1a1a;
+        }
+        .attachment-size {
+            color: #999;
+            font-size: 0.85em;
+            margin-right: 10px;
+        }
+        .attachment-link {
+            color: #4a7c9e;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .attachment-link:hover {
+            text-decoration: underline;
+        }
+
+        .meeting-flag {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        .flag-prior {
+            background: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+        .flag-future {
+            background: #f3e5f5;
+            border-left: 3px solid #9c27b0;
+        }
+        .flag-followup {
+            background: #fff3e0;
+            border-left: 3px solid #ff9800;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Meeting Preparation & Relationship Radar</h1>
+        <p class="subtitle" id="subtitle">Executive intelligence tool for calendar management</p>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="eventSearch" placeholder="Search calendar, projects, people, or meetings...">
+        <button onclick="searchEvent()">Search</button>
+        <button class="clear" onclick="clearSearch()">Clear</button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-button active" onclick="switchTab(event, 'radar')">Relationship Radar</button>
+        <button class="tab-button" onclick="switchTab(event, 'prep')">Meeting Prep</button>
+        <button class="tab-button" onclick="switchTab(event, 'digest')">Weekly Digest</button>
+        <button class="tab-button" onclick="switchTab(event, 'news')">In the News</button>
+    </div>
+
+    <!-- Radar Tab -->
+    <div id="radar-tab" class="tab-content active">
+        <div class="main-grid">
+            <div>
+                <div id="graph"></div>
+                <p style="font-size: 0.8em; color: #999; margin-top: 10px; text-align: center;">Click any contact to view details and meeting history</p>
+            </div>
+            <div class="panel" id="panel">
+                <div class="panel-empty">Click a contact to view details</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meeting Prep Tab -->
+    <div id="prep-tab" class="tab-content">
+        <div id="prepContent">
+            <div class="prep-section">
+                <h3>No meeting selected</h3>
+                <p>Click on a contact in the Relationship Radar to see meeting prep details, including:</p>
+                <ul style="margin-top: 10px; margin-left: 20px;">
+                    <li>Meeting history and frequency</li>
+                    <li>Suggested prep questions</li>
+                    <li>Prior meeting notes</li>
+                    <li>Follow-up reminders</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Digest Tab -->
+    <div id="digest-tab" class="tab-content">
+        <div class="digest-grid" id="digestContent"></div>
+    </div>
+
+    <!-- News Tab -->
+    <div id="news-tab" class="tab-content">
+        <div class="digest-grid" id="newsContent"></div>
+    </div>
+
+    <script>
+        // Comprehensive calendar & inbox data
+        const allCalendarEvents = [
+            { subject: "Miami Film Festival", date: "Apr 2, 2026", month: "April", year: 2026, location: "Miami", attendees: ["Asif Atchu", "Jenna Santoianni", "Chris O'Connell", "Don McGregor"], tags: ["Miami", "festival"] },
+            { subject: "Miami Film Festival - Day 2", date: "Apr 3, 2026", month: "April", year: 2026, location: "Miami", attendees: ["Asif Atchu", "Jenna Santoianni"], tags: ["Miami", "festival"] },
+            { subject: "Miami Film Festival - Closing Ceremony", date: "Apr 7, 2026", month: "April", year: 2026, location: "Miami", attendees: ["Asif Atchu", "Don McGregor"], tags: ["Miami", "festival"] },
+            { subject: "MIA Post Mortem & Debrief", date: "Apr 8, 2026", month: "April", year: 2026, location: "LA", attendees: ["Asif Atchu", "Jenna Santoianni", "Modi Gohil"], tags: ["Miami", "debrief"] },
+            { subject: "Rabbit Rabbit Production Meeting", date: "Mar 28, 2026", month: "March", year: 2026, location: "LA", attendees: ["Asif Atchu", "Modi Gohil", "Don McGregor"], tags: ["Rabbit Rabbit", "production"] },
+            { subject: "Rabbit Rabbit Episode 101 Review", date: "Mar 29, 2026", month: "March", year: 2026, location: "LA", attendees: ["Asif Atchu", "Chris O'Connell", "Modi Gohil"], tags: ["Rabbit Rabbit", "review"] },
+            { subject: "Rabbit Rabbit Dailies Review - Day 06", date: "Mar 30, 2026", month: "March", year: 2026, location: "LA", attendees: ["Jenna Santoianni", "Modi Gohil"], tags: ["Rabbit Rabbit", "dailies"] },
+            { subject: "Wuthering Heights Development", date: "May 10, 2026", month: "May", year: 2026, location: "NY", attendees: ["Asif Atchu", "Chris O'Connell"], tags: ["Wuthering Heights", "development"] },
+            { subject: "Wuthering Heights Writers Room", date: "May 15, 2026", month: "May", year: 2026, location: "LA", attendees: ["Chris O'Connell", "Modi Gohil"], tags: ["Wuthering Heights", "writers"] },
+            { subject: "Wuthering Heights Network Pitch", date: "May 20, 2026", month: "May", year: 2026, location: "NY", attendees: ["Asif Atchu", "Jenna Santoianni", "Don McGregor"], tags: ["Wuthering Heights", "pitch"] },
+            { subject: "Summer Strategy Meeting", date: "Jul 1, 2026", month: "July", year: 2026, location: "LA", attendees: ["Asif Atchu", "Jenna Santoianni", "Modi Gohil"], tags: ["July", "strategy"] },
+            { subject: "July Production Check-in", date: "Jul 15, 2026", month: "July", year: 2026, location: "LA", attendees: ["Chris O'Connell", "Modi Gohil"], tags: ["July", "production"] }
+        ];
+
+        // Enhanced contact data with type, value score, prep questions, projects, and attachments
+        const defaultContacts = [
+            {
+                name: "Asif Atchu", meetings: 21, title: "MRC Executive", type: "internal", valueScore: 95,
+                prepQuestions: ["What are the key priorities for this quarter?", "Any blockers on current projects?", "How is the team performing?"],
+                projects: [
+                    { name: "Rabbit Rabbit", role: "Producer" },
+                    { name: "Wuthering Heights", role: "Executive Producer" },
+                    { name: "The Crown", role: "Development" }
+                ],
+                attachments: [
+                    { name: "Rabbit Rabbit - Episode 101 - Collated", size: "691 KB", type: "script" },
+                    { name: "Wuthering Heights Budget Notes", size: "156 KB", type: "document" },
+                    { name: "Q2 Strategy Overview", size: "2.3 MB", type: "presentation" }
+                ]
+            },
+            {
+                name: "Jenna Santoianni", meetings: 19, title: "MRC Executive", type: "internal", valueScore: 92,
+                prepQuestions: ["How's the development pipeline looking?", "What new projects are in the pipeline?", "Any talent concerns?"],
+                projects: [
+                    { name: "Rabbit Rabbit", role: "Producer" },
+                    { name: "Miami Film Festival", role: "Liaison" }
+                ],
+                attachments: [
+                    { name: "Dailies - RRS1 Episode 101 Day 06", size: "890 MB", type: "video" },
+                    { name: "Miami Festival Report", size: "412 KB", type: "document" }
+                ]
+            },
+            {
+                name: "Chris O'Connell", meetings: 14, title: "MRC Development", type: "internal", valueScore: 88,
+                prepQuestions: ["Status on current projects?", "Any creative notes or feedback needed?", "Script progress?"],
+                projects: [
+                    { name: "Wuthering Heights", role: "Creative Director" },
+                    { name: "Rabbit Rabbit", role: "Story Editor" }
+                ],
+                attachments: [
+                    { name: "Wuthering Heights - Episode 1 Draft", size: "267 KB", type: "script" },
+                    { name: "Character Notes & Feedback", size: "134 KB", type: "document" }
+                ]
+            },
+            {
+                name: "Modi Gohil", meetings: 11, title: "MRC Executive", type: "internal", valueScore: 85,
+                prepQuestions: ["Production timeline updates?", "Any production challenges?", "Budget status?"],
+                projects: [
+                    { name: "Rabbit Rabbit", role: "Line Producer" },
+                    { name: "The Crown", role: "Production" }
+                ],
+                attachments: [
+                    { name: "Rabbit Rabbit Production Schedule", size: "445 KB", type: "document" },
+                    { name: "Budget Variance Report", size: "289 KB", type: "spreadsheet" }
+                ]
+            },
+            {
+                name: "Don McGregor", meetings: 8, title: "Paramount", type: "external", valueScore: 75,
+                prepQuestions: ["How are acquisitions looking?", "Any festival feedback?", "Thoughts on upcoming slate?"],
+                projects: [
+                    { name: "Miami Film Festival", role: "Festival Contact" },
+                    { name: "Distribution Strategy", role: "Partner" }
+                ],
+                attachments: [
+                    { name: "Miami Festival Program Guide", size: "3.2 MB", type: "document" },
+                    { name: "Paramount Slate 2026", size: "1.8 MB", type: "presentation" }
+                ]
+            }
+        ];
+
+        // Prep data and notes storage
+        let meetingNotes = {};
+        let followUpDates = {};
+        let meetingValueScores = {}; // Store individual meeting value classifications
+
+        // Default digest data
+        const defaultEventData = {
+            calendarEvents: [
+                { subject: "Ongoing meetings with core team", date: "Weekly", attendees: ["Asif Atchu", "Jenna Santoianni", "Chris O'Connell", "Modi Gohil", "Don McGregor"] }
+            ],
+            metrics: {
+                coverage: { value: 5, detail: "Key contacts in active rotation" },
+                risk: { value: "35%", detail: "Balanced across team" },
+                blindSpots: { value: 0, detail: "Full visibility" },
+                meetings: { value: 12, detail: "Average weekly" },
+                projects: { value: 3, detail: "Multiple projects" },
+                actions: { value: 8, detail: "Ongoing tasks" }
+            },
+            scripts: [
+                { name: "Rabbit Rabbit - Episode 101 - Collated", size: "691 KB", status: "Ready" },
+                { name: "Rabbit Rabbit - Episode 101 - Pages", size: "278 KB", status: "Ready" }
+            ],
+            dailies: [
+                { name: "RRS1 - 101 Dailies - Day 06 - 03/30/26", date: "Mar 30, 2026", status: "Uploaded" }
+            ],
+            news: [
+                { title: "Premium Content Market Trends", source: "Variety", summary: "Prestige drama demand remains strong in 2026." },
+                { title: "Festival Season Outlook", source: "Hollywood Reporter", summary: "Key festivals announce 2026 programming." }
+            ]
+        };
+
+        let currentEventData = null;
+        let currentContacts = defaultContacts;
+        let selectedContact = null;
+
+        function switchTab(e, tabName) {
+            e.preventDefault();
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            e.target.classList.add('active');
+        }
+
+        function searchEvent() {
+            const query = document.getElementById('eventSearch').value.trim().toLowerCase();
+            if (!query) return;
+
+            const matchingEvents = allCalendarEvents.filter(evt => {
+                const searchableText = [evt.subject, evt.month, evt.location, evt.date, evt.attendees.join(' '), evt.tags.join(' ')].join(' ').toLowerCase();
+                return searchableText.includes(query);
+            });
+
+            if (matchingEvents.length === 0) {
+                alert(`No events found for "${query}".`);
+                return;
+            }
+
+            const eventData = generateEventDataFromMatches(matchingEvents, query);
+            currentEventData = eventData;
+
+            const attendeesSet = new Set();
+            matchingEvents.forEach(evt => evt.attendees.forEach(a => attendeesSet.add(a)));
+
+            currentContacts = Array.from(attendeesSet).map(name => {
+                const defaultContact = defaultContacts.find(c => c.name === name);
+                return defaultContact || { name: name, meetings: 5, title: "Contact", type: "external", valueScore: 50, prepQuestions: [] };
+            });
+
+            document.getElementById('subtitle').textContent = `Events matching: ${query} (${matchingEvents.length} found)`;
+            setTimeout(() => {
+                buildRadar();
+                buildDigest(eventData);
+                buildNews(eventData);
+            }, 0);
+        }
+
+        function clearSearch() {
+            document.getElementById('eventSearch').value = '';
+            currentEventData = null;
+            currentContacts = defaultContacts;
+            selectedContact = null;
+            document.getElementById('subtitle').textContent = "Executive intelligence tool for calendar management";
+            buildRadar();
+            buildDigest(defaultEventData);
+            buildNews(defaultEventData);
+            document.getElementById('prepContent').innerHTML = '<div class="prep-section"><h3>No meeting selected</h3><p>Click on a contact in the Relationship Radar to see meeting prep details.</p></div>';
+        }
+
+        function generateEventDataFromMatches(matchingEvents, searchTerm) {
+            const attendeesSet = new Set();
+            matchingEvents.forEach(evt => evt.attendees.forEach(a => attendeesSet.add(a)));
+
+            return {
+                calendarEvents: matchingEvents,
+                metrics: {
+                    coverage: { value: attendeesSet.size, detail: `People involved` },
+                    risk: { value: "-", detail: "Calculate per event" },
+                    blindSpots: { value: 0, detail: "Check separately" },
+                    meetings: { value: matchingEvents.length, detail: `Events found` },
+                    projects: { value: 1, detail: searchTerm },
+                    actions: { value: 0, detail: "Pending" }
+                },
+                scripts: [],
+                dailies: [],
+                news: []
+            };
+        }
+
+        function buildRadar() {
+            const graphDiv = document.getElementById('graph');
+            d3.select('#graph').selectAll('svg').remove();
+
+            const width = graphDiv.clientWidth;
+            const height = graphDiv.clientHeight;
+
+            const nodes = [
+                { id: 'you', name: 'You', size: 80, color: '#3b82f6' },
+                ...currentContacts.slice(0, 6).map((c, i) => ({
+                    id: c.name,
+                    name: c.name,
+                    size: 50 + (c.meetings / 2),
+                    color: c.type === 'internal' ? ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#60a5fa'][i % 5] : '#c084fc',
+                    type: c.type
+                }))
+            ];
+
+            const links = currentContacts.slice(0, 6).map(c => ({
+                source: 'you',
+                target: c.name,
+                weight: 2
+            }));
+
+            const svg = d3.select('#graph').append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(200).strength(0.3))
+                .force('charge', d3.forceManyBody().strength(-800))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collide', d3.forceCollide().radius(d => d.size + 40));
+
+            const link = svg.append('g').selectAll('line').data(links).enter().append('line')
+                .attr('stroke', '#ccc').attr('stroke-width', 2).attr('opacity', 0.5);
+
+            const linkLabels = svg.append('g').selectAll('text.link-label').data(links).enter().append('text')
+                .attr('class', 'link-label')
+                .attr('font-size', '11px')
+                .attr('font-weight', '600')
+                .attr('fill', '#000000')
+                .attr('opacity', 1.0)
+                .attr('text-anchor', 'middle')
+                .text(d => `${d.weight} weeks`);
+
+            const node = svg.append('g').selectAll('circle').data(nodes).enter().append('circle')
+                .attr('r', d => d.size).attr('fill', d => d.color).attr('opacity', 0.9)
+                .attr('stroke', '#fff').attr('stroke-width', 2).style('cursor', 'pointer')
+                .on('click', (e, d) => { e.stopPropagation(); showPanel(d); })
+                .call(d3.drag()
+                    .on('start', e => { if (!e.active) simulation.alphaTarget(0.3).restart(); e.subject.fx = e.x; e.subject.fy = e.y; })
+                    .on('drag', e => { e.subject.fx = e.x; e.subject.fy = e.y; })
+                    .on('end', e => { if (!e.active) simulation.alphaTarget(0); e.subject.fx = null; e.subject.fy = null; }));
+
+            const label = svg.append('g').selectAll('text').data(nodes).enter().append('text')
+                .attr('text-anchor', 'middle').attr('dy', '.35em').attr('font-size', '12px')
+                .attr('font-weight', '600').attr('fill', 'white')
+                .text(d => d.name.split(' ')[0]).style('pointer-events', 'none');
+
+            simulation.on('tick', () => {
+                link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+                linkLabels.attr('x', d => (d.source.x + d.target.x) / 2)
+                    .attr('y', d => (d.source.y + d.target.y) / 2);
+                node.attr('cx', d => d.x).attr('cy', d => d.y);
+                label.attr('x', d => d.x).attr('y', d => d.y);
+            });
+
+            svg.on('click', clearPanel);
+        }
+
+        function showPanel(node) {
+            if (node.id === 'you') {
+                document.getElementById('panel').innerHTML = '<div class="panel-empty">You (Scott)</div>';
+                return;
+            }
+
+            selectedContact = currentContacts.find(c => c.name === node.name);
+            if (!selectedContact) return;
+
+            let html = `<button class="close-btn" onclick="clearPanel()">X</button><div style="clear: both;">`;
+            html += `<div style="font-size: 1.3em; margin-bottom: 12px; font-weight: 600;">${selectedContact.name}</div>`;
+            html += `<div class="badge badge-${selectedContact.type}">${selectedContact.type.toUpperCase()}</div>`;
+            html += `<div class="badge badge-${selectedContact.valueScore >= 90 ? 'high' : 'medium'}-value">Value: ${selectedContact.valueScore}/100</div>`;
+            html += `<div class="info-item"><strong>Title:</strong> ${selectedContact.title}</div>`;
+            html += `<div class="info-item"><strong>Meetings:</strong> ${selectedContact.meetings}</div>`;
+
+            // Meeting flags
+            html += `<div class="meeting-flag flag-prior"><strong>Prior Meetings:</strong> ${selectedContact.meetings} total</div>`;
+            html += `<div class="meeting-flag flag-future"><strong>Upcoming:</strong> Check calendar</div>`;
+
+            // Show follow-up reminder if exists
+            if (followUpDates[selectedContact.name]) {
+                html += `<div class="meeting-flag flag-followup"><strong>Follow-up:</strong> ${followUpDates[selectedContact.name]}</div>`;
+            }
+
+            html += `<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><a href="#" onclick="switchTab(event, 'prep'); return false;" style="color: #4a7c9e; text-decoration: none; font-weight: 600;">→ View Meeting Prep</a></div>`;
+            html += '</div>';
+
+            document.getElementById('panel').innerHTML = html;
+
+            // Build prep content
+            buildPrepContent(selectedContact);
+        }
+
+        function buildPrepContent(contact) {
+            let html = `<div class="prep-section">`;
+            html += `<h3>${contact.name} - Meeting Preparation</h3>`;
+            html += `<div style="margin-bottom: 15px;">`;
+            html += `<div class="badge badge-${contact.type}">${contact.type.toUpperCase()}</div>`;
+            html += `<div class="badge badge-${contact.valueScore >= 90 ? 'high' : 'medium'}-value">Overall Score: ${contact.valueScore}</div>`;
+            html += `</div>`;
+            html += `<p><strong>Title:</strong> ${contact.title}</p>`;
+            html += `<p style="margin-top: 8px;"><strong>Total Meetings:</strong> ${contact.meetings}</p>`;
+            html += `</div>`;
+
+            // Find all meetings with this contact
+            const contactMeetings = allCalendarEvents.filter(evt => evt.attendees.includes(contact.name));
+
+            // Classify individual meetings
+            if (contactMeetings.length > 0) {
+                html += `<div class="prep-section"><h3>Meetings with ${contact.name}</h3>`;
+                contactMeetings.forEach((meeting, index) => {
+                    const meetingId = `${contact.name}-${index}`;
+                    const savedValue = meetingValueScores[meetingId] || 50;
+                    let valueClassification = '';
+                    if (savedValue < 33) {
+                        valueClassification = 'Low Value';
+                    } else if (savedValue < 66) {
+                        valueClassification = 'Medium Value';
+                    } else {
+                        valueClassification = 'High Value';
+                    }
+
+                    html += `<div style="margin-bottom: 20px; padding: 12px; background: #f9f7f5; border-radius: 6px;">`;
+                    html += `<div style="font-weight: 600; color: #1a1a1a; margin-bottom: 6px;">${meeting.subject}</div>`;
+                    html += `<div style="font-size: 0.85em; color: #666; margin-bottom: 10px;">${meeting.date} • ${meeting.location}</div>`;
+                    html += `<div style="font-size: 0.85em; color: #666; margin-bottom: 12px;">Attendees: ${meeting.attendees.join(', ')}</div>`;
+                    html += `<div style="font-size: 0.85em; margin-bottom: 8px;"><strong>Classify Value:</strong></div>`;
+                    html += `<input type="range" class="value-slider" id="meeting-value-${meetingId}" min="0" max="100" value="${savedValue}" oninput="updateMeetingValueLabel('${meetingId}')">`;
+                    html += `<div class="value-label" id="meeting-value-label-${meetingId}">${valueClassification} (${savedValue})</div>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Suggested prep questions
+            if (contact.prepQuestions && contact.prepQuestions.length > 0) {
+                html += `<div class="prep-section"><h3>Suggested Prep Questions</h3>`;
+                contact.prepQuestions.forEach(q => {
+                    html += `<div class="prep-question">• ${q}</div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Relevant projects
+            if (contact.projects && contact.projects.length > 0) {
+                html += `<div class="projects-section"><h3>Relevant Projects</h3>`;
+                contact.projects.forEach(proj => {
+                    html += `<div class="project-item">`;
+                    html += `<div class="project-name">${proj.name}</div>`;
+                    html += `<div class="project-role">Role: ${proj.role}</div>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Attachments from email
+            if (contact.attachments && contact.attachments.length > 0) {
+                html += `<div class="attachments-section"><h3>Related Attachments & Files</h3>`;
+                contact.attachments.forEach(att => {
+                    html += `<div class="attachment-item">`;
+                    html += `<div class="attachment-name">${att.name}</div>`;
+                    html += `<div class="attachment-size">${att.size}</div>`;
+                    html += `<a class="attachment-link" href="#" onclick="downloadAttachment('${att.name}'); return false;">↓</a>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Meeting notes section
+            html += `<div class="prep-section"><h3>Meeting Notes</h3>`;
+            html += `<textarea id="notes-${contact.name}" class="notes-textarea" placeholder="Add notes from prior meetings, action items, or context for upcoming meeting...">${meetingNotes[contact.name] || ''}</textarea>`;
+            html += `<button class="save-btn" onclick="saveMeetingNotes('${contact.name}')">Save Notes</button>`;
+            html += `</div>`;
+
+            // Follow-up reminder
+            html += `<div class="prep-section"><h3>Schedule Follow-up</h3>`;
+            html += `<input type="date" id="followup-${contact.name}" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 100%; margin-bottom: 10px;" value="${followUpDates[contact.name] || ''}">`;
+            html += `<button class="save-btn" onclick="saveFollowUpDate('${contact.name}')">Set Reminder</button>`;
+            html += `</div>`;
+
+            document.getElementById('prepContent').innerHTML = html;
+        }
+
+        function updateMeetingValueLabel(meetingId) {
+            const slider = document.getElementById(`meeting-value-${meetingId}`);
+            const label = document.getElementById(`meeting-value-label-${meetingId}`);
+            const value = parseInt(slider.value);
+            let classification = '';
+            if (value < 33) {
+                classification = 'Low Value';
+            } else if (value < 66) {
+                classification = 'Medium Value';
+            } else {
+                classification = 'High Value';
+            }
+            label.textContent = `${classification} (${value})`;
+            // Save the value
+            meetingValueScores[meetingId] = value;
+        }
+
+        function downloadAttachment(fileName) {
+            alert(`Opening: ${fileName}\n\nIn a real integration, this would download from your email.`);
+        }
+
+        function saveMeetingNotes(contactName) {
+            const notes = document.getElementById(`notes-${contactName}`).value;
+            meetingNotes[contactName] = notes;
+            alert('Notes saved!');
+        }
+
+        function saveFollowUpDate(contactName) {
+            const date = document.getElementById(`followup-${contactName}`).value;
+            followUpDates[contactName] = date;
+            alert(`Follow-up scheduled for ${date}`);
+        }
+
+        function clearPanel() {
+            document.getElementById('panel').innerHTML = '<div class="panel-empty">Click a contact to view details</div>';
+            selectedContact = null;
+        }
+
+        function buildDigest(eventData) {
+            let html = '';
+            const m = eventData.metrics;
+            html += `<div class="digest-card success-card"><div class="card-header">Coverage This Week</div><div class="card-value">${m.coverage.value}</div><div class="card-detail">${m.coverage.detail}</div></div>`;
+            html += `<div class="digest-card warning-card"><div class="card-header">Concentration Risk</div><div class="card-value">${m.risk.value}</div><div class="card-detail">${m.risk.detail}</div></div>`;
+            html += `<div class="digest-card"><div class="card-header">Blind Spots</div><div class="card-value">${m.blindSpots.value}</div><div class="card-detail">${m.blindSpots.detail}</div></div>`;
+            html += `<div class="digest-card"><div class="card-header">This Week's Meetings</div><div class="card-value">${m.meetings.value}</div><div class="card-detail">${m.meetings.detail}</div></div>`;
+            html += `<div class="digest-card"><div class="card-header">Active Projects</div><div class="card-value">${m.projects.value}</div><div class="card-detail">${m.projects.detail}</div></div>`;
+            html += `<div class="digest-card success-card"><div class="card-header">Action Items</div><div class="card-value">${m.actions.value}</div><div class="card-detail">${m.actions.detail}</div></div>`;
+
+            if (eventData.scripts && eventData.scripts.length > 0) {
+                html += `<h2 style="font-size: 1.2em; grid-column: 1/-1; margin-top: 20px; margin-bottom: 15px;">Scripts</h2>`;
+                eventData.scripts.forEach(s => {
+                    html += `<div class="digest-card"><div class="card-header">${s.name}</div><div class="card-detail">Size: ${s.size} | ${s.status}</div></div>`;
+                });
+            }
+
+            if (eventData.dailies && eventData.dailies.length > 0) {
+                html += `<h2 style="font-size: 1.2em; grid-column: 1/-1; margin-top: 20px; margin-bottom: 15px;">Dailies</h2>`;
+                eventData.dailies.forEach(d => {
+                    html += `<div class="digest-card"><div class="card-header">${d.name}</div><div class="card-detail">${d.date} | ${d.status}</div></div>`;
+                });
+            }
+
+            document.getElementById('digestContent').innerHTML = html;
+        }
+
+        function buildNews(eventData) {
+            let html = '';
+            if (eventData.news && eventData.news.length > 0) {
+                eventData.news.forEach(article => {
+                    html += `<div class="digest-card"><div class="card-header">${article.title}</div><div style="color: #4a7c9e; font-weight: 500; margin-bottom: 8px;">${article.source}</div><div class="card-detail">${article.summary}</div></div>`;
+                });
+            }
+            document.getElementById('newsContent').innerHTML = html;
+        }
+
+        buildRadar();
+        buildDigest(defaultEventData);
+        buildNews(defaultEventData);
+    </script>
+</body>
+</html>

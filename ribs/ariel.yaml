@@ -1,0 +1,80 @@
+ea:
+  name: Ariel
+  email: ariel@mrcentertainment.com
+
+artifact_id: ariel-schedule
+
+calendars:
+  - id: brye
+    label: Brye
+    accountId: Brye
+    color: "#002D74"
+    default_visible: true
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords: []
+
+  - id: robyn
+    label: Robyn
+    accountId: Robyn
+    color: "#22438a"
+    default_visible: true
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords: []
+
+  - id: jess
+    label: Jess
+    accountId: Jess
+    color: "#1a73e8"
+    default_visible: false
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords: []
+
+  - id: hannah
+    label: Hannah
+    accountId: Hannah
+    color: "#2e7d32"
+    default_visible: false
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords: []
+
+  - id: johnny
+    label: Johnny
+    accountId: Johnny
+    color: "#7b1fa2"
+    default_visible: false
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords: []
+
+  - id: ariel
+    label: Ariel (me)
+    accountId: me
+    color: "#5e5e5e"
+    default_visible: false
+    coverage: false
+    schedule_window:
+      start: "09:00"
+      end: "18:00"
+    personal_keywords: []
+
+features:
+  schedule: true
+  radar: false
+  prep: true
+
+settings:
+  days_ahead: 14

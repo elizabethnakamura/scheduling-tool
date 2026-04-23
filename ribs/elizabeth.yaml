@@ -1,0 +1,42 @@
+ea:
+  name: Elizabeth Nakamura
+  email: enakamura@mrcentertainment.com
+
+artifact_id: asif-schedule
+
+calendars:
+  - id: asif
+    label: Asif Satchu
+    accountId: Asif
+    color: "#002D74"
+    default_visible: true
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords:
+      - zain
+      - zahra
+      - soccer
+      - basketball
+      - tower rd
+      - copa de oro
+      - trainer
+      - alex - pt
+      - mirman
+      - echo horizon
+      - escapology
+      - topgolf
+      - katsuya
+      - dinner
+      - birthday
+
+viewer: ea   # Elizabeth is managing Asif's calendar
+
+features:
+  schedule: true
+  radar: true
+  prep: true
+
+settings:
+  days_ahead: 14

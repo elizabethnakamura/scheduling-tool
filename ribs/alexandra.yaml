@@ -1,0 +1,29 @@
+ea:
+  name: Alexandra Messersmith
+  email: amessersmith@mrcentertainment.com
+
+artifact_id: scott-schedule
+
+calendars:
+  - id: scott
+    label: Scott Tenley
+    accountId: Scott
+    color: "#002D74"
+    default_visible: true
+    coverage: false
+    schedule_window:
+      start: "11:00"
+      end: "18:00"
+    personal_keywords:
+      - birthday
+      - dinner
+      - trainer
+      - personal
+
+features:
+  schedule: true
+  radar: true       # Alexandra owns the radar — she gets it
+  prep: true
+
+settings:
+  days_ahead: 14

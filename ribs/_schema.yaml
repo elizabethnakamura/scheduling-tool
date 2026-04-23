@@ -1,0 +1,41 @@
+# RIB SCHEMA — reference for adding new EAs
+#
+# Copy this, fill it in, save as ribs/<firstname>.yaml
+# Then run: node build/build.mjs <firstname>
+
+ea:
+  name: string          # EA's full name
+  email: string         # EA's email
+
+artifact_id: string     # The Cowork artifact ID to update on rebuild
+                        # Find it in Cowork after creating the artifact
+
+calendars:              # Array — one entry per calendar this EA can access
+  - id: string          # Short unique key, no spaces (e.g. "asif", "scott")
+    label: string       # Display name shown in the UI toggle
+    accountId: string   # The accountId from Outlook list-accounts
+                        # Ask Cowork: "what accounts do I have in Outlook?"
+    color: string       # Hex color for this calendar's events in the UI
+    default_visible: bool   # Show this calendar on first load?
+    coverage: bool          # True = this is a coverage/backup calendar,
+                            # shown under a "Coverage" section in the toggle
+    schedule_window:
+      start: "HH:MM"    # Earliest schedulable time (e.g. "11:00")
+      end:   "HH:MM"    # Latest schedulable time (e.g. "18:00")
+    personal_keywords:  # List of lowercase strings — events matching these
+      - string          # are classified as "personal" (hidden from radar,
+                        # shown with personal badge in schedule)
+
+viewer: string          # Who is viewing this dashboard?
+                        # "ea"   = EA managing exec (default) — uses EA name in header,
+                        #          prep notes framed as "prepare your exec"
+                        # "exec" = exec viewing their own calendar — uses exec name,
+                        #          prep notes framed as "prepare yourself"
+
+features:
+  schedule: bool        # Show the Schedule tab?
+  radar: bool           # Show the Relationship Radar tab?
+  prep: bool            # Show the Meeting Prep tab?
+
+settings:
+  days_ahead: int       # How many days ahead to load (default: 14)

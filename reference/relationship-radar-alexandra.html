@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scott's Relationship Radar Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', 'Garamond', serif;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            padding: 30px;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        h1 { color: #1a1a1a; margin-bottom: 8px; font-size: 1.8em; font-weight: bold; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            margin-bottom: 30px;
+            max-width: 1600px;
+        }
+        #graph {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            height: 700px;
+            position: relative;
+        }
+        .panel {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        .panel-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #999;
+            text-align: center;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 1.5em;
+            cursor: pointer;
+            float: right;
+        }
+        .section-title {
+            font-size: 0.85em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 18px 0 12px 0;
+            font-weight: 600;
+        }
+        .info-item {
+            padding: 12px;
+            background: #f9f7f5;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #4a7c9e;
+            font-size: 0.9em;
+        }
+        .info-label { color: #666; font-size: 0.75em; margin-bottom: 4px; }
+        .info-value { color: #1a1a1a; font-weight: 500; }
+        .timeline-item {
+            padding: 12px;
+            background: #f9f7f5;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #c9915c;
+            font-size: 0.85em;
+        }
+        .timeline-date { color: #666; font-size: 0.75em; font-weight: 600; margin-bottom: 4px; }
+        .timeline-event { color: #1a1a1a; margin-bottom: 4px; }
+        .project-tag {
+            display: inline-block;
+            background: #e8f1f6;
+            color: #4a7c9e;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            margin: 2px 2px 2px 0;
+        }
+        .action { padding: 12px; background: #fff3cd; border: 1px solid #d4a574; border-radius: 6px; color: #856404; margin-top: 15px; font-size: 0.9em; }
+
+        /* Weekly Digest Section */
+        .digest-section {
+            max-width: 1600px;
+        }
+        .digest-title {
+            font-size: 1.4em;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .digest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .digest-card {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .card-header {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #ddd;
+            color: #1a1a1a;
+        }
+        .card-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4a7c9e;
+            margin-bottom: 8px;
+        }
+        .card-detail {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.5;
+        }
+        .card-list {
+            list-style: none;
+        }
+        .card-list li {
+            padding: 8px 0;
+            color: #333;
+            font-size: 0.9em;
+            border-bottom: 1px solid #eee;
+        }
+        .card-list li:last-child {
+            border-bottom: none;
+        }
+        .card-list li strong {
+            color: #1a1a1a;
+        }
+
+        .warning-card {
+            border-color: #d4a574;
+            background: #fff9f0;
+        }
+        .warning-card .card-header {
+            color: #c9915c;
+            border-bottom-color: #d4a574;
+        }
+        .warning-card .card-value {
+            color: #c9915c;
+        }
+
+        .success-card {
+            border-color: #7fa88c;
+            background: #f5faf8;
+        }
+        .success-card .card-header {
+            color: #5a8d6f;
+            border-bottom-color: #7fa88c;
+        }
+        .success-card .card-value {
+            color: #5a8d6f;
+        }
+
+        .scripts-section {
+            margin-bottom: 30px;
+        }
+        .scripts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .script-card {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .script-icon {
+            font-size: 2.5em;
+            margin-bottom: 12px;
+            color: #4a7c9e;
+            font-weight: bold;
+        }
+        .script-title {
+            font-size: 1em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+        }
+        .script-meta {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .script-status {
+            display: inline-block;
+            background: #f0f4f1;
+            color: #5a8d6f;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin: 12px 0;
+        }
+        .script-button {
+            background: #4a7c9e;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: auto;
+            transition: background 0.2s;
+        }
+        .script-button:hover {
+            background: #36596e;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .panel {
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Scott's Relationship Radar Dashboard</h1>
+        <p class="subtitle">Miami Film Festival Network | CAA, Paramount, Rabbit Rabbit Project | Apr 2, 2026</p>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <input type="text" id="searchInput" placeholder="Search executives by name, studio, email..." style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95em;">
+            <button onclick="performSearch()" style="padding: 12px 20px; background: #4a7c9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Search</button>
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <div>
+            <div id="graph"></div>
+            <p style="font-size: 0.8em; color: #999; margin-top: 10px; text-align: center;">Click any node for details</p>
+        </div>
+        <div class="panel" id="panel">
+            <div class="panel-empty">Click a node to view details</div>
+        </div>
+    </div>
+
+    <!-- Scripts Section -->
+    <div class="scripts-section">
+        <h2 style="font-size: 1.4em; color: #60a5fa; margin-bottom: 20px; font-weight: 600;">Rabbit Rabbit Scripts</h2>
+        <div class="scripts-grid">
+            <div class="script-card">
+                <div class="script-icon">S1</div>
+                <div class="script-title">Episode 101 - Collated</div>
+                <div class="script-meta">Season 1, Episode 101</div>
+                <div class="script-meta">Yellow Revised - Mar 19, 2026</div>
+                <div class="script-meta">Size: 691 KB</div>
+                <div class="script-status">Ready to Send</div>
+                <button class="script-button" onclick="alert('Script sent to Scott via email')">Send to Scott</button>
+            </div>
+            <div class="script-card">
+                <div class="script-icon">S2</div>
+                <div class="script-title">Episode 101 - Pages</div>
+                <div class="script-meta">Season 1, Episode 101</div>
+                <div class="script-meta">Yellow Revised - Mar 19, 2026</div>
+                <div class="script-meta">Size: 278 KB</div>
+                <div class="script-status">Ready to Send</div>
+                <button class="script-button" onclick="alert('Script sent to Scott via email')">Send to Scott</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weekly Digest Section -->
+    <div class="digest-section">
+        <div style="display: flex; gap: 20px; margin-bottom: 20px; border-bottom: 2px solid #ddd;">
+            <button onclick="switchTab('weekly')" id="tab-weekly" style="background: none; border: none; padding: 12px 20px; font-size: 1.1em; font-weight: 600; color: #1a1a1a; cursor: pointer; border-bottom: 3px solid #4a7c9e;">Weekly Digest</button>
+            <button onclick="switchTab('news')" id="tab-news" style="background: none; border: none; padding: 12px 20px; font-size: 1.1em; font-weight: 600; color: #999; cursor: pointer; border-bottom: 3px solid transparent;">In the News</button>
+            <button onclick="switchTab('dailies')" id="tab-dailies" style="background: none; border: none; padding: 12px 20px; font-size: 1.1em; font-weight: 600; color: #999; cursor: pointer; border-bottom: 3px solid transparent;">Dailies & Filming</button>
+        </div>
+
+        <!-- Weekly Digest Tab -->
+        <div id="weekly-tab" class="digest-grid">
+            <div class="digest-card success-card">
+                <div class="card-header">Coverage This Week</div>
+                <div class="card-value">5</div>
+                <div class="card-detail">Entities covered in meetings</div>
+                <ul class="card-list">
+                    <li><strong>Scott:</strong> 3 meetings (CAA, Don McGregor, Jenna)</li>
+                    <li><strong>Jenna:</strong> 2 meetings (CAA, Don McGregor)</li>
+                </ul>
+            </div>
+
+            <div class="digest-card warning-card">
+                <div class="card-header">Concentration Risk</div>
+                <div class="card-value">40%</div>
+                <div class="card-detail">Don McGregor meetings</div>
+                <ul class="card-list">
+                    <li>Threshold: 25%</li>
+                    <li><strong>Action:</strong> Diversify meeting coverage</li>
+                </ul>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Blind Spots</div>
+                <div class="card-value">1</div>
+                <div class="card-detail">Entity silent 2+ weeks</div>
+                <ul class="card-list">
+                    <li><strong>Peter Craig:</strong> Last contact 3 weeks ago</li>
+                    <li><strong>Action:</strong> Schedule follow-up call</li>
+                </ul>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">This Week's Meetings</div>
+                <div class="card-value">3</div>
+                <div class="card-detail">Key meetings scheduled</div>
+                <ul class="card-list">
+                    <li><strong>Mar 26:</strong> CAA (cell call)</li>
+                    <li><strong>Mar 28:</strong> Don McGregor</li>
+                    <li><strong>Apr 2:</strong> Miami Film Festival</li>
+                </ul>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Active Projects</div>
+                <div class="card-value">1</div>
+                <div class="card-detail">Project in focus</div>
+                <ul class="card-list">
+                    <li><strong>Rabbit Rabbit:</strong> S1 Ep 101 scripts ready</li>
+                    <li><strong>Status:</strong> Pre-production</li>
+                    <li><strong>Key contacts:</strong> CAA, Paramount</li>
+                </ul>
+            </div>
+
+            <div class="digest-card success-card">
+                <div class="card-header">Action Items</div>
+                <div class="card-value">3</div>
+                <div class="card-detail">Priority tasks this week</div>
+                <ul class="card-list">
+                    <li>URGENT: Send Rabbit Rabbit scripts to Scott</li>
+                    <li>PLAN: Miami Film Fest coordination (Apr 2-7)</li>
+                    <li>FOLLOW: Peter Craig 48-hour check-in</li>
+                </ul>
+            </div>
+        </div>
+        <!-- End Weekly Digest Tab -->
+
+        <!-- In the News Tab -->
+        <div id="news-tab" class="digest-grid" style="display: none;">
+            <div class="digest-card">
+                <div class="card-header">Paramount Reorganization</div>
+                <div class="card-detail">
+                    Paramount Pictures announced leadership changes in production division. Don McGregor moving to increased oversight role. Potential impact on current projects and development pipelines.
+                </div>
+                <div style="margin-top: 12px; color: #666; font-size: 0.8em;">Published: Apr 1, 2026</div>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">CAA New Initiative</div>
+                <div class="card-detail">
+                    CAA launching new content fund focused on scripted television. Opens opportunities for independent producers and established studios. $200M commitment announced.
+                </div>
+                <div style="margin-top: 12px; color: #666; font-size: 0.8em;">Published: Mar 30, 2026</div>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Miami Film Festival Dates</div>
+                <div class="card-detail">
+                    Official dates announced: Apr 2-7, 2026. Key industry figures expected to attend. Premiere slots available for submissions until Mar 25 (extended deadline).
+                </div>
+                <div style="margin-top: 12px; color: #666; font-size: 0.8em;">Published: Mar 28, 2026</div>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Production Trends</div>
+                <div class="card-detail">
+                    Industry report shows uptick in premium television greenlit for 2026-2027. Streaming platforms dominating production spend. Prestige dramas gaining momentum.
+                </div>
+                <div style="margin-top: 12px; color: #666; font-size: 0.8em;">Published: Mar 27, 2026</div>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Streaming Wars Update</div>
+                <div class="card-detail">
+                    Netflix and Amazon competing for major talent. Both platforms securing exclusive overall deals. Content spend accelerating across platforms.
+                </div>
+                <div style="margin-top: 12px; color: #666; font-size: 0.8em;">Published: Mar 25, 2026</div>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Industry Events</div>
+                <div class="card-detail">
+                    Upcoming: TV Writers Conference (Apr 8-10), Los Angeles. Major agencies and studios hosting panels. Networking events and pitch opportunities.
+                </div>
+                <div style="margin-top: 12px; color: #666; font-size: 0.8em;">Published: Mar 24, 2026</div>
+            </div>
+        </div>
+        <!-- End In the News Tab -->
+
+        <!-- Dailies & Filming Tab -->
+        <div id="dailies-tab" class="digest-grid" style="display: none;">
+            <div class="digest-card">
+                <div class="card-header">Rabbit Rabbit Season 1</div>
+                <div class="card-detail">
+                    <strong>Episode 101 - Day 06 Dailies</strong>
+                    <p style="margin-top: 12px;">Production date: Mar 30, 2026</p>
+                    <p style="margin-top: 8px; font-size: 0.85em; color: #666;">Status: Filming in progress</p>
+                    <p style="margin-top: 12px; font-size: 0.9em;">Production dailies package includes raw footage, sound sync, camera reports, and production notes from today's shoot.</p>
+                    <a href="#" style="display: inline-block; margin-top: 16px; padding: 10px 16px; background: #4a7c9e; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">View RRS1 - 101 Dailies - Day 06 - 03/30/26</a>
+                </div>
+            </div>
+
+            <div class="digest-card success-card">
+                <div class="card-header">Production Schedule</div>
+                <div class="card-detail">
+                    <strong>S1E101 Shooting Schedule</strong>
+                    <ul style="list-style: none; margin-top: 12px;">
+                        <li style="padding: 6px 0; border-bottom: 1px solid #eee;"><strong>Day 06:</strong> Mar 30, 2026 (Completed)</li>
+                        <li style="padding: 6px 0; border-bottom: 1px solid #eee;"><strong>Day 07:</strong> Apr 1, 2026</li>
+                        <li style="padding: 6px 0; border-bottom: 1px solid #eee;"><strong>Day 08:</strong> Apr 2, 2026</li>
+                        <li style="padding: 6px 0;">Wrap anticipated: Apr 5, 2026</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="digest-card">
+                <div class="card-header">Latest Updates</div>
+                <div class="card-detail">
+                    <ul style="list-style: none;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee; color: #333; font-size: 0.9em;"><strong>Mar 30:</strong> Day 06 dailies processed and uploaded</li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #eee; color: #333; font-size: 0.9em;"><strong>Mar 29:</strong> Guest star confirmed for arc scenes</li>
+                        <li style="padding: 8px 0; color: #333; font-size: 0.9em;"><strong>Mar 28:</strong> Sets completed on schedule</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- End Dailies & Filming Tab -->
+    </div>
+
+    <script>
+        // Executive Database
+        const executiveDatabase = [
+            // A24
+            { name: 'David Fenkel', studio: 'A24', role: 'Co-Founder', email: 'fenkel@a24films.com' },
+            { name: 'Daniel Katz', studio: 'A24', role: 'Co-Founder', email: 'katz@a24films.com' },
+            { name: 'Sasha Lloyd', studio: 'A24', role: 'Head, International Marketplace', email: 'sasha@a24films.com' },
+            { name: 'Noah Sacco', studio: 'A24', role: 'Head, Acquisitions & Development', email: 'sacco@a24films.com', phone: '646-568-6018' },
+            { name: 'Inman Young', studio: 'A24', role: 'Head, Production', email: 'inman@a24films.com', phone: '323-854-4845' },
+            // Amazon MGM
+            { name: 'Jennifer Nicholson Salke', studio: 'Amazon MGM', role: 'Head, Amazon MGM Studios', email: 'jsalke@amazon.com', phone: '310-573-3933' },
+            { name: 'Julie Rapaport', studio: 'Amazon MGM', role: 'Head, Film Creative & Strategy', email: 'julie.rapaport@amazonstudios.com', phone: '310-573-2556' },
+            { name: 'Courtenay Valenti', studio: 'Amazon MGM', role: 'Head of Film, Streaming & Theatrical', email: 'clval@amazon.com', phone: '424-434-1779' },
+            // Apple
+            { name: 'Zack Van Amburg', studio: 'Apple', role: 'Co-Head', email: 'zack@apple.com', phone: '424-326-4600' },
+            { name: 'Jamie Erlicht', studio: 'Apple', role: 'Co-Head', email: 'jamie@apple.com', phone: '424-326-4500' },
+            { name: 'Matt Dentler', studio: 'Apple', role: 'Head of Film', email: 'mdentler@apple.com', phone: '424-204-4454' },
+            // Disney
+            { name: 'David Greenbaum', studio: 'Disney', role: 'Pres, Live Action & 20th Century Studios', email: 'david.greenbaum@disney.com', phone: '818-560-1157' },
+            { name: 'Kevin Feige', studio: 'Marvel', role: 'President, CCO', email: 'kfeige@marvelstudios.com', phone: '818-560-9104' },
+            { name: 'Vanessa Morrison', studio: 'Disney+', role: 'Pres, Streaming', email: 'Vanessa.morrison@disney.com', phone: '818-560-2333' },
+            // Paramount
+            { name: 'Brian Robbins', studio: 'Paramount', role: 'CEO', email: 'brian_robbins@paramount.com', phone: '323-956-5008' },
+            { name: 'Daria Cercek', studio: 'Paramount', role: 'Co-Head', email: 'daria_cercek@paramount.com', phone: '323-956-3088' },
+            { name: 'Michael Ireland', studio: 'Paramount', role: 'Co-Head', email: 'michael_ireland@paramount.com', phone: '323-956-8883' },
+            // Sony
+            { name: 'Tom Rothman', studio: 'Sony/Columbia', role: 'Chairperson, Sony', email: 'Tom_rothman@spe.sony.com', phone: '310-244-1905' },
+            { name: 'Sanford Panitch', studio: 'Sony/Columbia', role: 'Pres, Columbia', email: 'Sanford_panitch@spe.sony.com', phone: '310-244-7411' },
+            { name: 'Josh Greenstein', studio: 'Sony/Columbia', role: 'Pres, Sony Motion Picture Group', email: 'Josh_greenstein@spe.sony.com' },
+            // Netflix
+            { name: 'Dan Lin', studio: 'Netflix', role: 'Head, Film', email: 'danlin@netflix.com', phone: '310-819-9465' },
+            { name: 'Kira Goldberg', studio: 'Netflix', role: 'Head, Drama/Thriller', email: 'Kgoldberg@netflix.com', phone: '323-688-7734' },
+            { name: 'Ori Marmur', studio: 'Netflix', role: 'Head, Action/Sci-Fi/Fantasy/Horror', email: 'Omarmur@netflix.com', phone: '213-618-4147' },
+            // Universal
+            { name: 'Donna Langley', studio: 'Universal', role: 'CCO', email: 'Donna.Langley@nbcuni.com', phone: '818-777-4538' },
+            { name: 'Peter Cramer', studio: 'Universal', role: 'Pres', email: 'Peter.Cramer@nbcuni.com', phone: '818-777-4374' },
+            // Warner Bros
+            { name: 'Michael De Luca', studio: 'Warner Bros', role: 'Co-CEO', email: 'Michael.Deluca@Warnerbros.com', phone: '818-954-5344' },
+            { name: 'Pamela Abdy', studio: 'Warner Bros', role: 'Co-CEO', email: 'Pam.Abdy@Warnerbros.com', phone: '818-954-4698' },
+            { name: 'Peter Safran', studio: 'DC Studios', role: 'Co-CEO', email: 'peter.c.safran@dcstudios.com', phone: '818-954-6560' },
+        ];
+
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            if (!query) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            const results = executiveDatabase.filter(exec =>
+                exec.name.toLowerCase().includes(query) ||
+                exec.studio.toLowerCase().includes(query) ||
+                exec.email.toLowerCase().includes(query) ||
+                exec.role.toLowerCase().includes(query)
+            );
+
+            displaySearchResults(results);
+        }
+
+        function displaySearchResults(results) {
+            let html = '<div style="margin-top: 30px;"><h2 style="font-size: 1.4em; margin-bottom: 20px; color: #1a1a1a;">Search Results (' + results.length + ' found)</h2>';
+
+            if (results.length === 0) {
+                html += '<p style="color: #666;">No executives found matching your search.</p>';
+            } else {
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">';
+                results.forEach(exec => {
+                    html += '<div style="background: #ffffff; border: 1px solid #ddd; border-radius: 12px; padding: 20px;">';
+                    html += '<div style="font-size: 1.1em; font-weight: 600; color: #1a1a1a; margin-bottom: 8px;">' + exec.name + '</div>';
+                    html += '<div style="color: #4a7c9e; font-weight: 500; margin-bottom: 12px;">' + exec.studio + '</div>';
+                    html += '<div style="font-size: 0.9em; color: #666; margin-bottom: 8px;">' + exec.role + '</div>';
+                    html += '<div style="font-size: 0.85em; color: #666; margin-bottom: 6px;">📧 <a href="mailto:' + exec.email + '" style="color: #4a7c9e; text-decoration: none;">' + exec.email + '</a></div>';
+                    if (exec.phone) {
+                        html += '<div style="font-size: 0.85em; color: #666;">📞 ' + exec.phone + '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            html += '</div>';
+
+            const resultsDiv = document.getElementById('searchResults');
+            if (resultsDiv) {
+                resultsDiv.innerHTML = html;
+            } else {
+                const newDiv = document.createElement('div');
+                newDiv.id = 'searchResults';
+                newDiv.innerHTML = html;
+                document.body.appendChild(newDiv);
+            }
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.getElementById('weekly-tab').style.display = 'none';
+            document.getElementById('news-tab').style.display = 'none';
+            document.getElementById('dailies-tab').style.display = 'none';
+
+            // Reset tab button styles
+            document.getElementById('tab-weekly').style.color = '#999';
+            document.getElementById('tab-weekly').style.borderBottomColor = 'transparent';
+            document.getElementById('tab-news').style.color = '#999';
+            document.getElementById('tab-news').style.borderBottomColor = 'transparent';
+            document.getElementById('tab-dailies').style.color = '#999';
+            document.getElementById('tab-dailies').style.borderBottomColor = 'transparent';
+
+            // Show selected tab
+            if (tabName === 'weekly') {
+                document.getElementById('weekly-tab').style.display = 'grid';
+                document.getElementById('tab-weekly').style.color = '#1a1a1a';
+                document.getElementById('tab-weekly').style.borderBottomColor = '#4a7c9e';
+            } else if (tabName === 'news') {
+                document.getElementById('news-tab').style.display = 'grid';
+                document.getElementById('tab-news').style.color = '#1a1a1a';
+                document.getElementById('tab-news').style.borderBottomColor = '#4a7c9e';
+            } else if (tabName === 'dailies') {
+                document.getElementById('dailies-tab').style.display = 'grid';
+                document.getElementById('tab-dailies').style.color = '#1a1a1a';
+                document.getElementById('tab-dailies').style.borderBottomColor = '#4a7c9e';
+            }
+        }
+
+        const nodeData = {
+            'Scott': { type: 'executive', size: 80, color: '#3b82f6', title: 'Scott', displayLabel: 'Scott\n(CEO)', role: 'CEO' },
+            'CAA': { type: 'entity', size: 70, color: '#8b5cf6', title: 'CAA', displayLabel: 'CAA', role: 'Talent Agency' },
+            'Peter': { type: 'contact', size: 65, color: '#8b5cf6', title: 'Peter Craig', displayLabel: 'Peter\nCraig', role: 'Writer (CAA)', email: 'Don.McGregor@paramount.com' },
+            'Jenna': { type: 'executive', size: 65, color: '#60a5fa', title: 'Jenna', displayLabel: 'Jenna\n(Exec)', role: 'Executive' },
+            'Don': { type: 'contact', size: 75, color: '#ec4899', title: 'Don McGregor', displayLabel: 'Don\nMcGregor', role: 'Paramount', email: 'Don.McGregor@paramount.com' },
+            'Rabbit': { type: 'project', size: 70, color: '#f59e0b', title: 'Rabbit Rabbit', displayLabel: 'Rabbit\nRabbit', role: 'Project' },
+            'Miami': { type: 'event', size: 70, color: '#10b981', title: 'Miami Film Festival', displayLabel: 'Miami\nFilm Fest', role: 'Event' }
+        };
+
+        const meetings = {
+            'Scott-CAA': [{ date: 'Mar 26 (1 wk ago)', type: 'Cell call', proj: 'Rabbit Rabbit' }],
+            'Scott-Peter': [{ date: 'Mar 12 (3 wks ago)', type: 'Call', proj: 'Rabbit Rabbit' }],
+            'Jenna-CAA': [{ date: 'Mar 19 (2 wks ago)', type: 'Discussion', proj: 'Rabbit Rabbit' }],
+            'Scott-Don': [
+                { date: 'Mar 28 (5 days ago)', type: 'Call', proj: 'Rabbit Rabbit, Miami Film Fest' },
+                { date: 'Mar 15 (18 days ago)', type: 'Meeting', proj: 'Rabbit Rabbit' },
+                { date: 'Feb 28 (33 days ago)', type: 'Conf call', proj: 'Development' }
+            ],
+            'Jenna-Don': [
+                { date: 'Mar 21 (12 days ago)', type: 'Call', proj: 'Rabbit Rabbit' },
+                { date: 'Mar 08 (25 days ago)', type: 'Meeting', proj: 'Development' }
+            ],
+            'Don-Miami': [{ date: 'Apr 2-7', type: 'Attending', proj: 'Paramount showcase' }]
+        };
+
+        const nodes = Object.entries(nodeData).map(([id, data]) => ({ id, ...data }));
+        const links = [
+            { source: 'Scott', target: 'CAA', label: '1 week', weight: 2 },
+            { source: 'Scott', target: 'Peter', label: '3 weeks', weight: 2 },
+            { source: 'Peter', target: 'CAA', label: 'Represented', weight: 2 },
+            { source: 'Jenna', target: 'CAA', label: '2 weeks', weight: 1 },
+            { source: 'Scott', target: 'Don', label: '3x', weight: 3 },
+            { source: 'Jenna', target: 'Don', label: '2x', weight: 2 },
+            { source: 'Don', target: 'Miami', label: 'Attending', weight: 2 },
+            { source: 'Scott', target: 'Rabbit', label: 'Working on', weight: 2 },
+            { source: 'Scott', target: 'Miami', label: 'Attending', weight: 2 }
+        ];
+
+        function showPanel(node) {
+            let html = `<button class="close-btn" onclick="clearPanel()">X</button>`;
+            html += `<div style="clear: both;"><div style="font-size: 1.3em; margin-bottom: 12px;">${node.title}</div>`;
+            html += `<div style="font-size: 0.9em; color: #94a3b8;">${node.role}</div>`;
+
+            if (node.email) {
+                html += `<div class="info-item"><div class="info-label">Email</div><div class="info-value">${node.email}</div></div>`;
+            }
+
+            const relevantMeetings = [];
+            Object.entries(meetings).forEach(([key, hist]) => {
+                const [p1, p2] = key.split('-');
+                if (p1 === node.id || p2 === node.id) {
+                    const other = p1 === node.id ? p2 : p1;
+                    hist.forEach(m => {
+                        relevantMeetings.push({ date: m.date, event: `${m.type} with ${other}`, proj: m.proj });
+                    });
+                }
+            });
+
+            if (relevantMeetings.length > 0) {
+                html += `<div class="section-title">Connection History</div>`;
+                relevantMeetings.sort((a, b) => b.date.localeCompare(a.date)).forEach(m => {
+                    html += `<div class="timeline-item"><div class="timeline-date">${m.date}</div><div class="timeline-event">${m.event}</div>`;
+                    if (m.proj) {
+                        const tags = m.proj.split(',').map(t => `<span class="project-tag">${t.trim()}</span>`).join('');
+                        html += `<div style="margin-top: 8px;">${tags}</div>`;
+                    }
+                    html += `</div>`;
+                });
+            }
+
+            if (node.id === 'Scott') {
+                html += `<div class="action">ACTION: Send Rabbit Rabbit scripts (2 files ready)</div>`;
+            } else if (node.id === 'Don') {
+                html += `<div class="action">PREP: At Miami Film Festival (Apr 2-7). Coordinate with Scott & Jenna.</div>`;
+            }
+
+            document.getElementById('panel').innerHTML = html + '</div>';
+        }
+
+        function clearPanel() {
+            document.getElementById('panel').innerHTML = '<div class="panel-empty">Click a node to view details</div>';
+        }
+
+        const graphDiv = document.getElementById('graph');
+        const width = graphDiv.clientWidth;
+        const height = graphDiv.clientHeight;
+
+        const svg = d3.select('#graph').append('svg')
+            .attr('width', width)
+            .attr('height', height)
+            .style('display', 'block');
+
+        const simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(links).id(d => d.id).distance(200).strength(0.3))
+            .force('charge', d3.forceManyBody().strength(-800))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collide', d3.forceCollide().radius(d => d.size + 40));
+
+        const link = svg.append('g').selectAll('line').data(links).enter().append('line')
+            .attr('stroke', '#ccc').attr('stroke-width', d => d.weight).attr('opacity', 0.5);
+
+        const linkLabel = svg.append('g').selectAll('text').data(links).enter().append('text')
+            .attr('font-size', '11px').attr('fill', '#000000').attr('text-anchor', 'middle')
+            .attr('font-weight', '600')
+            .text(d => d.label).attr('opacity', 1)
+            .style('pointer-events', 'none');
+
+        const node = svg.append('g').selectAll('circle').data(nodes).enter().append('circle')
+            .attr('r', d => d.size)
+            .attr('fill', d => d.color)
+            .attr('opacity', 0.9)
+            .attr('stroke', '#fff')
+            .attr('stroke-width', 2)
+            .style('cursor', 'pointer')
+            .on('click', (e, d) => { e.stopPropagation(); showPanel(d); })
+            .call(d3.drag()
+                .on('start', e => { if (!e.active) simulation.alphaTarget(0.3).restart(); e.subject.fx = e.x; e.subject.fy = e.y; })
+                .on('drag', e => { e.subject.fx = e.x; e.subject.fy = e.y; })
+                .on('end', e => { if (!e.active) simulation.alphaTarget(0); e.subject.fx = null; e.subject.fy = null; }));
+
+        const label = svg.append('g').selectAll('text').data(nodes).enter().append('text')
+            .attr('text-anchor', 'middle').attr('dy', '.35em').attr('font-size', '12px')
+            .attr('font-weight', '600').attr('fill', 'white').attr('white-space', 'pre')
+            .text(d => d.displayLabel).style('pointer-events', 'none');
+
+        simulation.on('tick', () => {
+            link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+            linkLabel.attr('x', d => (d.source.x + d.target.x) / 2)
+                .attr('y', d => (d.source.y + d.target.y) / 2);
+            node.attr('cx', d => d.x).attr('cy', d => d.y);
+            label.attr('x', d => d.x).attr('y', d => d.y);
+        });
+
+        svg.on('click', clearPanel);
+    </script>
+</body>
+</html>
