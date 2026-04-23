@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule Dashboard</title>
+<!--
+  MRC Scheduling Dashboard — Template
+  ─────────────────────────────────────────────────────────────────────
+  HOW TO CUSTOMIZE FOR YOUR EXEC:
+
+  1. Find the CONFIG block below (search "CONFIGURE ME")
+  2. Set execName, execAccountId, and showPersonal
+  3. Add personal keywords specific to your exec (their kids' names,
+     regular activities, etc.) so those events classify correctly
+  4. Copy this file to your folder (e.g. caroline/dashboard.html)
+  5. In your Cowork, create a new artifact and paste the contents
+
+  Access levels:
+  - If you have delegate access to your exec's calendar, set
+    execAccountId to whatever accountId Outlook assigns them
+    (run list-accounts in Cowork to find it)
+  - If you only have your own calendar, set execAccountId to "me"
+    and set showPersonal to false
+  ─────────────────────────────────────────────────────────────────────
+-->
+<style>
+:root { color-scheme: light; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #f8f9ff;
+  color: #0b1c30;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ── Header ── */
+.header {
+  background: #002D74;
+  color: white;
+  padding: 14px 18px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.header h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.header .sub {
+  font-size: 10px;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+.header .personal-toggle {
+  position: absolute;
+  top: 14px; right: 18px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  user-select: none;
+}
+.header .personal-toggle.on { color: rgba(255,255,255,0.9); }
+
+/* ── Loading / Error ── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #747782;
+  gap: 8px;
+  font-size: 13px;
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid #c4c6d2;
+  border-top-color: #002D74;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg {
+  padding: 30px 18px;
+  color: #ba1a1a;
+  text-align: center;
+  font-size: 12px;
+}
+
+/* ── Content ── */
+.content { padding: 14px 18px 40px; }
+
+.day-block { margin-bottom: 22px; }
+
+.day-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1.5px solid #c4c6d2;
+  margin-bottom: 9px;
+}
+.day-header.is-today { border-bottom-color: #002D74; }
+
+.day-name {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #747782;
+  min-width: 28px;
+}
+.is-today .day-name { color: #002D74; }
+
+.day-num {
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #0b1c30;
+  line-height: 1;
+}
+.is-today .day-num { color: #002D74; }
+
+.today-chip {
+  font-size: 9px; font-weight: 700;
+  background: #002D74; color: white;
+  padding: 2px 7px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+.section-label {
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: #747782;
+  margin: 0 0 6px;
+}
+
+/* ── Open Windows ── */
+.window-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: #eef2fc;
+  border: 1px dashed #b0c4f0;
+  border-radius: 4px;
+  margin-bottom: 5px;
+  font-size: 11px;
+  color: #22438a;
+}
+.window-row .dur {
+  margin-left: auto;
+  opacity: 0.55;
+  font-size: 10px;
+}
+
+/* ── Events ── */
+.event {
+  display: flex;
+  gap: 9px;
+  padding: 7px 9px;
+  background: #fff;
+  border: 1px solid #dce9ff;
+  border-left: 3px solid #c4c6d2;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 5px;
+}
+.event.zoom     { border-left-color: #1a73e8; }
+.event.inperson { border-left-color: #2e7d32; }
+.event.personal { border-left-color: #7b1fa2; }
+.event.allday   { border-left-color: #c4c6d2; background: #f5f7ff; }
+.event.personal-hidden { display: none; }
+
+.evt-time {
+  min-width: 68px; font-size: 11px; color: #747782;
+  padding-top: 1px; font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+.evt-time.allday { font-style: italic; color: #b0b4c4; }
+
+.evt-body { flex: 1; min-width: 0; }
+
+.evt-title { font-size: 12px; font-weight: 500; color: #0b1c30; line-height: 1.35; }
+
+.badge {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  padding: 1px 6px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px;
+}
+.badge.zoom     { background: #e8f0fe; color: #1a73e8; }
+.badge.inperson { background: #e8f5e9; color: #2e7d32; }
+.badge.personal { background: #f3e8fd; color: #7b1fa2; }
+
+.evt-loc { font-size: 10px; color: #747782; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evt-loc a { color: #1a73e8; text-decoration: none; }
+.evt-loc a:hover { text-decoration: underline; }
+
+.conflict-flag {
+  font-size: 9px; color: #ba1a1a; font-weight: 600;
+  margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.no-mtgs { font-size: 11px; color: #b0b4c4; font-style: italic; padding: 4px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="hdr-name">Schedule</h1>
+  <div class="sub" id="hdr-date">Loading...</div>
+  <span class="personal-toggle on" id="personal-toggle" title="Toggle personal events">● Personal</span>
+</div>
+
+<div id="app">
+  <div class="loading"><div class="spinner"></div> Pulling calendar…</div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// CONFIGURE ME
+// ════════════════════════════════════════════════════════════════
+const CONFIG = {
+  // Your exec's display name (shown in header)
+  execName: 'Your Exec',
+
+  // accountId from Outlook list-accounts for your exec's calendar
+  // Run: window.cowork.callMcpTool('mcp__<id>__list-accounts', {})
+  // to find the right value. If you only have your own calendar, use "me".
+  execAccountId: 'me',
+
+  // Also show your own (EA) calendar alongside the exec's?
+  showMyCalendar: false,
+  myAccountId: 'me',
+
+  // How many days to show
+  daysAhead: 14,
+
+  // Exec's scheduling preferences
+  scheduleWindowStart: 11 * 60,  // 11:00am (in minutes)
+  scheduleWindowEnd:   18 * 60,  // 6:00pm
+
+  // Personal event keywords for THIS exec
+  // Add their kids' names, regular activities, home-related stuff
+  personalKeywords: [
+    // e.g. 'zain', 'zahra', 'soccer', 'basketball', 'tower rd', 'trainer'
+  ],
+};
+// ════════════════════════════════════════════════════════════════
+
+// ── Constants ────────────────────────────────────────────────────
+const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS     = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH_IDX = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+const OUTLOOK_TOOL = 'mcp__4232ebbc-c694-4895-9b33-f52a55fd5c09__list-events';
+
+const pad2 = n => String(n).padStart(2,'0');
+const toDateStr = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+
+// ── Parser ────────────────────────────────────────────────────────
+function parseCalendarText(text) {
+  const events = [], yr = new Date().getFullYear();
+  const blocks = text.split(/\n(?=\d+\.\s)/);
+
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) continue;
+    const tm = lines[0].match(/^\d+\.\s+(.+)$/);
+    if (!tm) continue;
+    const title = tm[1], dtLine = lines[1];
+    let dateStr=null, startTime=null, endTime=null, isAllDay=false;
+
+    const timedRe = /(\w{3}),\s+(\w{3})\s+(\d+)\s+·\s+(\d+):(\d+)\s+(AM|PM)(?:\s+\([^)]*\))?\s+[–\-]\s+(\d+):(\d+)\s+(AM|PM)/;
+    const alldayRe = /(\w{3}),\s+(\w{3})\s+(\d+)(?:\s+[–\-]\s+\w+,\s+\w+\s+\d+)?\s+\(All day\)/;
+    const tm2 = dtLine.match(timedRe), am = dtLine.match(alldayRe);
+
+    if (tm2) {
+      const [,, mon, day, sh, sm, sampm, eh, em, eampm] = tm2;
+      const d = new Date(yr, MONTH_IDX[mon], parseInt(day));
+      dateStr = toDateStr(d);
+      let h = parseInt(sh); if (sampm==='PM'&&h!==12) h+=12; if(sampm==='AM'&&h===12) h=0;
+      startTime = `${pad2(h)}:${sm}`;
+      let eh2 = parseInt(eh); if(eampm==='PM'&&eh2!==12) eh2+=12; if(eampm==='AM'&&eh2===12) eh2=0;
+      endTime = `${pad2(eh2)}:${em}`;
+    } else if (am) {
+      const [,, mon, day] = am;
+      dateStr = toDateStr(new Date(yr, MONTH_IDX[mon], parseInt(day)));
+      isAllDay = true;
+    } else continue;
+
+    let location=null, zoomUrl=null;
+    for (const ln of lines.slice(2)) {
+      if (ln.startsWith('Location:')) {
+        location = ln.slice(9).trim();
+        const zm = location.match(/https?:\/\/[^\s]*zoom[^\s]*/i);
+        if (zm) zoomUrl = zm[0];
+      }
+    }
+
+    const tl = title.toLowerCase(), ll = (location||'').toLowerCase();
+    const personal = ['birthday','dinner','party','soccer','basketball','tennis',
+      'pt','trainer','coach','school', ...CONFIG.personalKeywords.map(k=>k.toLowerCase())];
+    let type = 'business';
+    if (personal.some(w => tl.includes(w))) type = 'personal';
+    else if (zoomUrl || ll.includes('zoom.us')) type = 'zoom';
+    else if (location && (location.match(/\d{3,}/) || ll.includes('office') || ll.includes(' rd') ||
+        ll.includes('blvd') || ll.includes('ave,') || ll.includes('suite'))) type = 'inperson';
+
+    events.push({ title, dateStr, startTime, endTime, isAllDay, location, zoomUrl, type });
+  }
+  return events;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+const fmtTime = t => { if(!t) return ''; const [h,m]=t.split(':').map(Number); const ap=h>=12?'pm':'am',h12=h%12||12; return m===0?`${h12}${ap}`:`${h12}:${pad2(m)}${ap}`; };
+const toMins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
+const minsToStr = mins => { const h=Math.floor(mins/60),m=mins%60,ap=h>=12?'pm':'am',h12=h%12||12; return m===0?`${h12}${ap}`:`${h12}:${pad2(m)}${ap}`; };
+const durLabel = mins => { const h=Math.floor(mins/60),m=mins%60; if(h>0&&m>0) return `${h}h ${m}m`; return h>0?`${h}h`:`${m}m`; };
+
+function getOpenWindows(evs) {
+  const busy = evs.filter(e=>!e.isAllDay&&e.startTime&&e.type!=='personal')
+    .map(e=>({s:toMins(e.startTime),e:toMins(e.endTime||e.startTime)}))
+    .sort((a,b)=>a.s-b.s);
+  const wins=[]; let cur=CONFIG.scheduleWindowStart;
+  for(const b of busy){ if(b.s>cur+29) wins.push({s:cur,e:b.s}); cur=Math.max(cur,b.e); }
+  if(cur<CONFIG.scheduleWindowEnd-29) wins.push({s:cur,e:CONFIG.scheduleWindowEnd});
+  return wins;
+}
+
+function hasConflict(ev, all) {
+  if(ev.isAllDay||!ev.startTime) return false;
+  const s=toMins(ev.startTime),e=toMins(ev.endTime||ev.startTime);
+  return all.some(o=>o!==ev&&!o.isAllDay&&o.startTime&&toMins(o.startTime)<e&&toMins(o.endTime||o.startTime)>s);
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function renderDay(ds, evs, todayStr, showPersonal) {
+  const d = new Date(ds + 'T12:00:00');
+  const isToday = ds === todayStr;
+  let html = `<div class="day-block">
+    <div class="day-header ${isToday?'is-today':''}">
+      <span class="day-name">${DAYS[d.getDay()]}</span>
+      <span class="day-num">${MONTHS[d.getMonth()]} ${d.getDate()}</span>
+      ${isToday ? '<span class="today-chip">Today</span>' : ''}
+    </div>`;
+
+  // Open windows — today only
+  if (isToday) {
+    const wins = getOpenWindows(evs);
+    if (wins.length) {
+      html += `<div class="section-label">Open windows</div>`;
+      for (const w of wins.slice(0,3)) {
+        html += `<div class="window-row">${minsToStr(w.s)} – ${minsToStr(w.e)}<span class="dur">${durLabel(w.e-w.s)}</span></div>`;
+      }
+    }
+    const biz = evs.filter(e=>!e.isAllDay&&e.type!=='personal');
+    if (biz.length) html += `<div class="section-label" style="margin-top:10px">Meetings</div>`;
+  }
+
+  const sorted = [...evs].sort((a,b)=>{
+    if(a.isAllDay&&!b.isAllDay) return -1; if(!a.isAllDay&&b.isAllDay) return 1;
+    return (a.startTime||'00:00').localeCompare(b.startTime||'00:00');
+  });
+
+  if (!sorted.length) { html += `<div class="no-mtgs">No meetings</div>`; }
+
+  const timed = sorted.filter(e=>!e.isAllDay);
+  for (const ev of sorted) {
+    const timeStr = ev.isAllDay ? 'All day' : `${fmtTime(ev.startTime)}${ev.endTime?' – '+fmtTime(ev.endTime):''}`;
+    const badge = ev.type==='zoom'?'<span class="badge zoom">Zoom</span>':ev.type==='inperson'?'<span class="badge inperson">In Person</span>':ev.type==='personal'?'<span class="badge personal">Personal</span>':'';
+    const loc = ev.zoomUrl ? `<div class="evt-loc"><a href="${ev.zoomUrl}" target="_blank">Join Zoom ↗</a></div>` :
+      (ev.location&&!ev.isAllDay ? `<div class="evt-loc">${ev.location.length>52?ev.location.slice(0,52)+'…':ev.location}</div>` : '');
+    const conflict = !ev.isAllDay && hasConflict(ev, timed) ? `<div class="conflict-flag">⚠ Overlap</div>` : '';
+    const hidden = (!showPersonal && ev.type==='personal') ? ' personal-hidden' : '';
+
+    html += `<div class="event ${ev.isAllDay?'allday':ev.type}${hidden}">
+      <div class="evt-time ${ev.isAllDay?'allday':''}">${timeStr}</div>
+      <div class="evt-body">
+        <div class="evt-title">${ev.title}</div>
+        ${badge}${conflict}${loc}
+      </div>
+    </div>`;
+  }
+  return html + '</div>';
+}
+
+// ── Main ──────────────────────────────────────────────────────────
+(async () => {
+  const app = document.getElementById('app');
+  document.getElementById('hdr-name').textContent = CONFIG.execName;
+
+  const now = new Date();
+  const todayStr = toDateStr(now);
+  document.getElementById('hdr-date').textContent =
+    `${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()} · Live`;
+
+  const start = new Date(now); start.setHours(0,0,0,0);
+  const end = new Date(start); end.setDate(start.getDate() + CONFIG.daysAhead);
+  const dateRange = { startDate: `${toDateStr(start)}T00:00:00`, endDate: `${toDateStr(end)}T23:59:59`, count: 50 };
+
+  // Toggle personal
+  let showPersonal = true;
+  document.getElementById('personal-toggle').addEventListener('click', () => {
+    showPersonal = !showPersonal;
+    document.getElementById('personal-toggle').className = 'personal-toggle' + (showPersonal?' on':'');
+    document.querySelectorAll('.event.personal').forEach(el => {
+      el.classList.toggle('personal-hidden', !showPersonal);
+    });
+  });
+
+  try {
+    // Fetch exec calendar
+    const res = await window.cowork.callMcpTool(OUTLOOK_TOOL, { accountId: CONFIG.execAccountId, ...dateRange });
+    if (res.isError) throw new Error('Calendar fetch failed');
+
+    let allEvents = parseCalendarText(res.content[0].text);
+
+    // Optionally merge EA's own calendar
+    if (CONFIG.showMyCalendar && CONFIG.myAccountId !== CONFIG.execAccountId) {
+      const myRes = await window.cowork.callMcpTool(OUTLOOK_TOOL, { accountId: CONFIG.myAccountId, ...dateRange });
+      if (!myRes.isError) {
+        const myEvents = parseCalendarText(myRes.content[0].text);
+        // Dedupe by title+date
+        const seen = new Set(allEvents.map(e => `${e.title}|${e.dateStr}`));
+        allEvents = [...allEvents, ...myEvents.filter(e => !seen.has(`${e.title}|${e.dateStr}`))];
+      }
+    }
+
+    // Group by date
+    const byDate = {};
+    for (const ev of allEvents) {
+      if (!byDate[ev.dateStr]) byDate[ev.dateStr] = [];
+      byDate[ev.dateStr].push(ev);
+    }
+
+    const dates = Object.keys(byDate).sort();
+    let html = '<div class="content">';
+    for (const ds of dates) html += renderDay(ds, byDate[ds], todayStr, showPersonal);
+    html += '</div>';
+    app.innerHTML = html;
+
+  } catch(err) {
+    app.innerHTML = `<div class="error-msg">Could not load calendar.<br><small>${err.message}</small></div>`;
+  }
+})();
+</script>
+</body>
+</html>
